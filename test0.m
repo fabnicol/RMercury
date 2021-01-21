@@ -29,7 +29,7 @@
 :- import_module int, float.
 :- import_module math.
 
-% Predicates for sourcing and evaluating R code.  Impure predicates
+% Predicates for sourcing and evaluating R code. Impure predicates
 % performing C I/O.
 % TODO: see if module io could be used somehow to
 % reduce impurity
@@ -61,8 +61,8 @@
                          if (Z) teardownRinC();
                        ").
 
-% Predicates implementated as semipure that should be regarded as pure
-% in Mercury code (promised pure or hopefully so) Starting with
+% Predicates implemented as semipure that should be regarded as pure
+% in Mercury code (promised pure or hopefully so). Starting with
 % one-dimensional real or integer output
 
 :- pred eval_float(string::in, string::in, int::in, float::out) is det.
