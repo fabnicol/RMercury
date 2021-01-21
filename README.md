@@ -65,7 +65,7 @@ If all goes well, an executable named `test0` will be created by the
 Mercury compiler (`mmc`) at the root of the directory. Run it as
 follows:   
 
-LD_LIBRARY_PATH=/usr/lib/R/library/RInside/lib/  ./test0  
+      LD_LIBRARY_PATH=/usr/lib/R/library/RInside/lib/  ./test0  
 
 -----------------------------------
 
