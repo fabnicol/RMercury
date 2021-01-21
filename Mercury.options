@@ -1,0 +1,25 @@
+# Default target for mmc --make.
+
+MAIN_TARGET = test0
+
+CFLAGS = -I/usr/lib/R/library/RInside/include/  -I/usr/share/R/include/
+MGNUCFLAGS += -O3 -march=native -std=gnu99
+         
+# Link with RInside
+
+MLLIBS += -lR -lpcre2-8 -llzma -lbz2 -lz -lrt -ldl -lm -licuuc -licui18n -lcall  -lRInside -lstdc++
+
+# Statically link to Mercury libraries.
+
+MCFLAGS += --mercury-linkage static
+
+# General optimisation flags.
+
+MCFLAGS += --optimise-constructor-last-call
+
+# Don't specify to the C compiler that the ANSI dialect of C should be used.
+# --ansi-c practically does nothing after Mercury commit 61df175
+# so this only relaxes older Mercury compilers.
+
+MCFLAGS += --no-ansi-c -E # --target-debug
+
