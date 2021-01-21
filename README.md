@@ -62,8 +62,9 @@ and run GNU `make`.
 ## Running the test executable
 
 If all goes well, an executable named `test0` will be created by the
-Mercury compiler (`mmc`) at the root of the directory. Run it as
-follows:   
+Mercury compiler (`mmc`) at the root of the directory. An Ubuntu 20.10
+build is provided in the repository, which will be erased on a successful
+run of `make`. Run the executable as follows:   
 
       LD_LIBRARY_PATH=/usr/lib/R/library/RInside/lib/  ./test0  
 
