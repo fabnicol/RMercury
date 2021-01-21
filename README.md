@@ -45,7 +45,7 @@ seamless access to statistical procedures and graphics offered by R.
 This project has been developed under GNU/Linux Ubuntu 20.10. Other
 platforms are not supported.  
 Build Mercury from source code using the 20.06.1 distribution and the
-GCC compiler. I used need `GNU gcc/g++ 10.2`. Other compilers may work
+GCC compiler. I used `GNU gcc/g++ 10.2`. Other compilers may work
 too but will not be supported.  
 
 Install `R-4.0.2` or later version using `apt` or build from source. If
