@@ -51,7 +51,10 @@ too but will not be supported.
 Install `R-4.0.2` or later version using `apt` or build from source. If
 so, configure the source package with `--enable-R-shlib --prefix=/usr`.  
 
-Install the following R packages: `RInside`, `data.table`.  
+Install the following R packages: `RInside` and `data.table`.  
+Use the patched fork of Dirk Eddelbuettel's RInside package available at  
+https://github.com/fabnicol/RInside.git. 
+You may use the R package manager to install other packages.
 *Note: preferably use an admin install to /usr/lib, as local installs
 seem to raise issues. You may first automatically install to $HOME/R
 using the R packager then copy to /usr/lib/R/library by hand.*  
