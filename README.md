@@ -45,7 +45,7 @@ seamless access to statistical procedures and graphics offered by R.
 This project has been developed under GNU/Linux Ubuntu 20.10. Other
 platforms are not supported.  
 Build Mercury from source code using the 20.06.1 distribution and the
-GCC compiler. I used need `GNU gcc/g++ 10.2`. Other compilers may work
+GCC compiler. I used `GNU gcc/g++ 10.2`. Other compilers may work
 too but will not be supported.  
 
 Install `R-4.0.2` or later version using `apt` or build from source. If
@@ -65,10 +65,11 @@ and run GNU `make`.
 ## Running the test executable
 
 If all goes well, an executable named `test0` will be created by the
-Mercury compiler (`mmc`) at the root of the directory. Run it as
-follows:   
+Mercury compiler (`mmc`) at the root of the directory. An Ubuntu 20.10
+build is provided in the repository, which will be erased on a successful
+run of `make`. Run the executable as follows:   
 
-LD_LIBRARY_PATH=/usr/lib/R/library/RInside/lib/  ./test0  
+      LD_LIBRARY_PATH=/usr/lib/R/library/RInside/lib/  ./test0  
 
 -----------------------------------
 
