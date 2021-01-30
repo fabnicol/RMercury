@@ -16,27 +16,30 @@
 %% this program; if not, write to the Free Software Foundation, Inc., 675 Mass
 %% Ave, Cambridge, MA 02139, USA.
 
-
 :- module test0.
 
 :- interface.
+
 :- import_module io.
 
 :- impure pred main(io::di, io::uo) is det.
 
+%----------------------------------------------%
+
 :- implementation.
-:- import_module int, bool, char, float, string.
+
+:- import_module int.
+:- import_module bool.
+:- import_module char.
+:- import_module float.
+:- import_module string.
 :- import_module math.
 
-% Predicates for sourcing and evaluating R code.  Impure predicates
-% performing C I/O.
-% TODO: see if module io could be used somehow to
-% reduce impurity
-
-:- type shutdown == bool.
-
+        % Predicates for sourcing and evaluating R code.  Predicates
+        % performing C I/O, semipure or impure (pending evaluation).
 
 :- pragma foreign_decl("C", "#include <RInside_C.h>").
+
 :- pragma foreign_decl("C", "#include <Rinternals.h>").
 
 :- pragma foreign_code("C", "int start = 1;").
@@ -53,10 +56,10 @@
 
 :- pred stop_r is det.
 
-
-% Call this predicate at the end of a session.  For ill-understood reasons, this
-% RInside function (01.21) does not reset setup status to zero, so start_r
-% should not be called as would be expected
+    % Call this predicate at the end of a session.  
+    % For ill-understood reasons, this RInside function (01.21) 
+    % does not reset setup status to zero, so start_r
+    % should not be called as would be expected
 
 :- pragma foreign_proc("C",
                        stop_r,
@@ -88,12 +91,11 @@
                          Rf_PrintValue(evalInR(X));
                        ").
 
-% Predicates implementated as semipure that should be regarded as pure in
-% Mercury code (promised pure or hopefully so) Starting with one-dimensional
-% real or integer output
-
-% Predicates of arity one should be flagged impure They can query R internal
-% state variables across calls and printout.
+    % Predicates implementated as semipure (promised pure
+    % or hopefully so). Starting with one-dimensional
+    % real or integer output.
+    % Predicates of arity one flagged impure 
+    % pending further evaluation.
 
 %% Mercury type int       C type
 %% int                    MR_Integer
@@ -109,7 +111,6 @@
 %% float                  MR_Float
 %% char                   MR_Char
 %% string                 MR_String
-
 
 :- typeclass r_eval(T) where [
        pred eval(string::in, T::out) is det
@@ -131,38 +132,38 @@
        pred(eval/2) is eval_float
    ].
 
-% Predicates instanciating r_eval may be promised pure, but do not rely on they
-% for invoking internal state variables across calls.  Output is crushed.
-% R variables are threaded to Mercury using the output mode variables.
-
+    % Predicates instanciating r_eval may be promised pure, 
+    % but do not rely on they for invoking internal state 
+    % variables across calls.  Output is crushed.
+    % R variables are threaded to Mercury 
+    % using the output mode variables.
 
 :- pred eval_string(string::in, string::out) is det.
 
 :- pragma foreign_proc("C", eval_string(X::in, Y::out),
                     [promise_pure, will_not_call_mercury],
-                    "
-                         if (start) setupRinC();
-                         start = 0;
-                         int S = strlen(X);
-                         char buf[S + 100];
-                         memset(buf, 0, 100 + S);
-                         sprintf(buf, ""%s%s%s"",
-                                      ""z<-try({"",X,""});\
+    "
+         if (start) setupRinC();
+         start = 0;
+         int S = strlen(X);
+         char buf[S + 100];
+         memset(buf, 0, 100 + S);
+         sprintf(buf, ""%s%s%s"",
+                      ""z<-try({"",X,""});\
 if (inherits(z, 'try-error')) E <- 'R string error' else E <- z"");
 
-                         // Important note: use a buffer here.
-                         // writing Y = evalInRtoString(buf).string will NOT do.
+         // Important note: use a buffer here.
+         // writing Y = evalInRtoString(buf).string will NOT do.
 
-                         R_StringResult res = evalInRToString(buf);
+         R_StringResult res = evalInRToString(buf);
 
-                         // More care & control of memory allocation tha  with
-                         // just strdup
+         // More care & control of memory allocation tha  with
+         // just strdup
 
-                         MR_String a = MR_GC_NEW_ARRAY(char, res.length + 1);
-                         memcpy(a, res.string, res.length);
-                         Y = a;
-                    ").
-
+         MR_String a = MR_GC_NEW_ARRAY(char, res.length + 1);
+         memcpy(a, res.string, res.length);
+         Y = a;
+    ").
 
 :- pred eval_int(string::in, int::out) is det.
 
@@ -196,12 +197,13 @@ if (inherits(z, 'try-error')) E <- 'R string error' else E <- z"");
                        "
                          if (start) setupRinC();
                          start = 0;
-                         MR_Bool a = evalInRToBool(X) ? MR_YES : MR_NO ;
+                         MR_Bool a = evalInRToBool(X) ? 
+                                       MR_YES : MR_NO ;
                          Z = (MR_Bool) a;
                        ").
 
-% Testbed: playing with R I/O and retrieving R computations in Mercury variables
-% through the C foreign code interface.
+% Testbed: playing with R I/O and retrieving R computations 
+% in Mercury variables through the C foreign code interface.
 
 main(!IO) :-
              impure source("
@@ -267,13 +269,7 @@ main(!IO) :-
 %% user	0m0,334s
 %% sys  0m0,037s
 
-% TODO: expand this POC to vectorized data structures, which will request
-% setting precise equivalence relations between C, R (via the SEXP C-interface)
-% and Mercury data types.  This does not look as intractable.
-
-% TODO: ideally code introspection could allow to avoid some of the impurities:
-% run setupRinC() on the first R interface predicate and not until the last one;
-% run teardownRinC() only in the last call.  Whether or not this can be
-% realistically achieved, I do not know. In the meantime int::in flags will
-% remain to this effect.  Another way of dealing with this would be to write
-% predicates r_init_session and r_quit_session.
+% TODO: expand this POC to vectorized data structures, 
+% which will request setting precise equivalence relations 
+% between C, R (via the SEXP C-interface) and Mercury data types.
+% This does not look as intractable.
