@@ -59,7 +59,7 @@ You may use the R package manager to install other packages.
 seem to raise issues. You may first automatically install to $HOME/R
 using the R packager then copy to /usr/lib/R/library by hand.*  
 
-Donload the present repository, open a console in the local directory
+Download the present repository, open a console in the local directory
 and run GNU `make`.  
 
 ## Running the test executable
