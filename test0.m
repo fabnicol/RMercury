@@ -97,7 +97,7 @@
     % Predicates of arity one flagged impure 
     % pending further evaluation.
 
-%% Mercury type int       C type
+%% Mercury type           C type
 %% int                    MR_Integer
 %% int8                   int8_t
 %% int16                  int16_t
