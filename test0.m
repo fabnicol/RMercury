@@ -133,7 +133,7 @@
    ].
 
     % Predicates instanciating r_eval may be promised pure, 
-    % but do not rely on they for invoking internal state 
+    % but do not rely on them for invoking internal state 
     % variables across calls.  Output is crushed.
     % R variables are threaded to Mercury 
     % using the output mode variables.
@@ -157,7 +157,7 @@ if (inherits(z, 'try-error')) E <- 'R string error' else E <- z"");
 
          R_StringResult res = evalInRToString(buf);
 
-         // More care & control of memory allocation tha  with
+         // More care & control of memory allocation than  with
          // just strdup
 
          MR_String a = MR_GC_NEW_ARRAY(char, res.length + 1);
