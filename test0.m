@@ -25,6 +25,14 @@
 :- type float_buffer.
 :- type int_buffer.
 
+:- impure pred source(string::in) is det.
+
+:- impure pred source_echo(string::in) is det.
+
+:- pred float_vect(string::in, float_buffer::out) is det.
+
+:- pred int_vect(string::in, int_buffer::out) is det.
+
 :- impure pred main(io::di, io::uo) is det.
 
 %----------------------------------------------%
@@ -73,8 +81,6 @@
 % Sourcing R code
 %
 
-:- impure pred source(string::in) is det.
-
 % Mercury tweak: in embedded C code, double-quote double-quotes
 % and escape escape characters. Easy to remember!
 
@@ -86,8 +92,6 @@
                          start = 0;
                          evalQuietlyInR(X);
                        ").
-
-:- impure pred source_echo(string::in) is det.
 
 :- pragma foreign_proc("C",
                        source_echo(X::in),
@@ -188,7 +192,6 @@ if (inherits(z, 'try-error')) E <- 'R string error' else E <- z"");
                          MR_Integer a = evalInRToInt(X);
                          Z = (MR_Integer) a;
                        ").
-
 :- pred eval_float(string::in, float::out) is det.
 
 :- pragma foreign_proc("C",
@@ -214,16 +217,20 @@ if (inherits(z, 'try-error')) E <- 'R string error' else E <- z"");
                          Z = (MR_Bool) a;
                        ").
 
+:- pred write_bool(bool::in, io::di, io::uo) is det.
+
+write_bool(Value, !IO) :- (Value = yes -> write_string("TRUE", !IO)
+                          ;  write_string("FALSE", !IO)).
+
 % ---------------------------------------------------------------------------%
 % Vectors
 %
 
-  % Note that C-structures shoud not contain pointers 
+  % Note that C-structures shoud not contain pointers
   % beyond the first word, otherwise the GC will lose track.
   % A first-rank Integer field is OK.
 
 :- pragma foreign_decl("C", "
-
 #include ""mercury_float.h""    /* For MR_FLT_FMT. */
 #include ""mercury_memory.h""
 #include ""mercury_string.h""
@@ -254,7 +261,6 @@ typedef struct {
     % float_vect(R_Code, float_buffer)).
     % Parse R code into a Mercury float_buffer.
 
-:- pred float_vect(string::in, float_buffer::out) is det.
 
 :- pragma foreign_proc("C",
                        float_vect(X::in, Buffer::out),
@@ -266,18 +272,16 @@ typedef struct {
                          MR_Float *Items = (MR_Float *) REAL(V);
                          Buffer = MR_GC_NEW(FLOAT_BUFFER);
                          Buffer->size = LENGTH(V);
-                         
-         /* TODO: 
+
+         /* TODO:
          *  1. Does the GC effectively collect the R-internally
          *     allocated chunk when float_buffer is freed?
          *  2. Is it necessary to call R internals to free the chunk?
-         *  3. Possible double-free is using 'MR_GC_register_finalizer'? 
+         *  3. Possible double-free is using 'MR_GC_register_finalizer'?
          */
-                         
+
                          Buffer->contents = Items;
                        ").
-
-:- pred int_vect(string::in, int_buffer::out) is det.
 
 :- pragma foreign_proc("C",
                        int_vect(X::in, Buffer::out),
@@ -290,17 +294,17 @@ typedef struct {
                          MR_Integer S = LENGTH(V);
                          MR_Float *V1 = REAL(V);
                          Buffer->size = S;
-                         
+
                          /* TODO:
                          *
                          * RInside currently implements 'evalInR' by returning double vectors.
                          * It would be more efficient to reemplement this with interger vectors
-                         * using an ad-hoc 'evalIntegerVectorInR', therby avoiding the extra 
-                         * MR_GC_malloc + floor below. 
+                         * using an ad-hoc 'evalIntegerVectorInR', therby avoiding the extra
+                         * MR_GC_malloc + floor below.
                          * The above questions now concern the C-local SEXP V, not the int_buffer,
                          * which is entirely allocated on the Mercury GC'd heap.
-                         * /
-                         
+                         */
+
                          Buffer->contents = MR_GC_malloc(sizeof(MR_Integer) * S);
                          for (int i = 0; i < S; ++i)
                             Buffer->contents[i] = floor(V1[i]);
@@ -340,8 +344,8 @@ typedef struct {
                        ").
 
 % It should be easy to convert int_buffer or float_buffer into arrays or lists,
-% using item setters and iterating. 
-% Yet ideally it would be nice to allow the 'elements' C-array 
+% using item setters and iterating.
+% Yet ideally it would be nice to allow the 'elements' C-array
 % to take ownership of int/float_buffer 'contents' C-array
 % already allocated on the GC heap (int_buffer) or by R internals (float_buffer)
 % without a further copy operation.
@@ -363,10 +367,9 @@ main(!IO) :-
                  library(data.table)
                  fread(file = 'a.csv')
              "),
-             impure source_echo("y[V1 == 3]"),
              impure source_echo("z[V1 == 2]"),
              eval("y <- 12.0; z <- 11.5", X0),
-             eval("y <- ""abcd""", X1),
+             eval_string("y <- ""abcd""", X1),
              impure source_echo("E"),
              eval_int("z <- 9", X2),
              eval_int("cat('eval z: ', z, '\\n'); z", X3),
@@ -379,7 +382,7 @@ main(!IO) :-
              io.write_string(X1, !IO), io.nl(!IO),
              io.write_int(X2,  !IO), io.nl(!IO),
              io.write(X3,  !IO), io.nl(!IO),
-             io.write_bool(X4, !IO), io.nl(!IO),
+             write_bool(X4, !IO), io.nl(!IO),
              io.write_float(X5,  !IO), io.nl(!IO),
              io.write_float(X7,!IO), io.nl(!IO),
              io.write_int(X8,  !IO), io.nl(!IO),
@@ -393,49 +396,70 @@ main(!IO) :-
              io.write_float(X12, !IO), io.nl(!IO),
              io.write_int(X13, !IO), io.nl(!IO),
              io.write_int(X14, !IO), io.nl(!IO),
-             int_vect("
-              data.table::fwrite(list(1:100000), 'a.csv')
-              data.table::fread('a.csv')[[1]]", Column),
-             lookup_int(50000, Column, X15),
-             io.write_int(X15, !IO),
+             int_vect("invisible({
+                data.table::fwrite(list(1:1E6), 'a.csv')
+                  # note: we could avoid casting to numeric
+                  # if evalInR alloaxed to return as integer vector.
+                  # to be developed.
+                as.numeric(data.table::fread('a.csv')[[1]])})", Column),
+             lookup_int_size(Column, X15),io.nl(!IO),
+             io.write_int(X15, !IO),io.nl(!IO),
+             lookup_int(500000, Column, X16),
+             io.write_int(X16, !IO),io.nl(!IO),
              stop_r .
 
-%% Raw R-managed output (can one funnel it through Mercury IO module?):
-%% V1 V2
+%% %% Test Output
+
+%% Select a line in a data.table
+%%
+%%     V1 V2
 %% 1:  3  4
 
-%% V1 V2 V3
-%% 1:  1  2  3
-%% 2:  4  5  6
-%%     3:  7  8  9
+%% Read an R data.table, 1M lines
 
-%% V1 V2
-%% 1:  3  4
+%% V1
+%% 1:       1
+%% 2:       2
+%% 3:       3
+%% 4:       4
+%% 5:       5
+%% ---
+%% 999996:  999996
+%% 999997:  999997
+%% 999998:  999998
+%% 999999:  999999
+%% 1000000: 1000000
 
-%% V1 V2
+%% Select again
+%%     V1 V2
 %% 1:  2  3
 
+%% Raw (impure) R Output
+
 %% [1] "abcd"
-%% [1] 9
 %% eval z:  9
-%% abcd
+%% [1] 9
+
+%% Mercury-managed output
 %% 11.5
+%% 9
+%% 9
+%% TRUE
 %% 2.0
-%% yes
-%% 9
-%% 9
 %% 0.8414709568023682
 %% 58
-
-%% Vector lookups:
-%%
 %% 3
 %% 4.0
 %% 4
 %% 5
 
-%% real	0m0,357s
-%% user	0m0,308s
-%% sys  0m0,032s
+%% R-Vector processing
 
-% TODO: expand this POC to other vectorized data structures.
+%% 1000000
+%% 500001
+
+%% real	0m0,627s
+%% user	0m0,381s
+%% sys	0m0,054s
+
+%% % TODO: expand this POC to other vectorized data structures.
