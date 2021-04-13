@@ -234,6 +234,7 @@ write_bool(Value, !IO) :- (Value = yes -> write_string("TRUE", !IO)
 #include ""mercury_float.h""    /* For MR_FLT_FMT. */
 #include ""mercury_memory.h""
 #include ""mercury_string.h""
+#include ""Rdefines.h""
 
 #include <stdio.h>  /* For sscanf. */
 
@@ -258,9 +259,22 @@ typedef struct {
 :- pragma foreign_type("C", float_buffer, "FLOAT_BUFFER *",
                        [can_pass_as_mercury_type]).
 
-    % float_vect(R_Code, float_buffer)).
-    % Parse R code into a Mercury float_buffer.
+%------------------------------------------------------------------------- %
+% R type casts
+%
+% R is a dynamically-typed language whose returns are not type-safe.
+% Sometimes integer vectors will be returned as double vectors,
+% sometimes as integer vectors. Booleans and factors are often cast.
+% We adopt an coertion approach: what counts is the target type fixed
+% by the prefix [type_] and we regard Boolean, Real and Integer vectors
+% in R as castable on return to the target Mercury type.
+%%
 
+    % float_vect(R_Code, float_buffer).
+    %
+    % Parse R code into a Mercury float_buffer.
+    % Coerces logical and integer vectors into MR_Float.
+    % Sets Buffer as NULL on error.
 
 :- pragma foreign_proc("C",
                        float_vect(X::in, Buffer::out),
@@ -268,7 +282,30 @@ typedef struct {
                        "
                          if (start) setupRinC();
                          start = 0;
-                         SEXP V = evalInR(X);
+                         SEXP V;
+                         PROTECT(V = evalInR(X));
+                         if (! Rf_isVector(V))
+                         {
+                            UNPROTECT(1);
+                            Buffer = NULL;   /* Cannot coerce */
+                            return;
+                         }
+
+                         if (Rf_isLogical(V) || Rf_isInteger(V))
+                         {
+                           PROTECT(V = Rf_coerceVector(V, REALSXP));
+                         }
+                         else if (! Rf_isReal(V))
+                         {
+                           UNPROTECT(1); /* V */
+                           Buffer = NULL;   /* Cannot coerce */
+                           return;
+                         }
+
+                         /* REAL returns a double.
+                          *  We are casting to MR_Float yet this should be
+                          *  investigated a bit further */
+
                          MR_Float *Items = (MR_Float *) REAL(V);
                          Buffer = MR_GC_NEW(FLOAT_BUFFER);
                          Buffer->size = LENGTH(V);
@@ -276,11 +313,13 @@ typedef struct {
          /* TODO:
          *  1. Does the GC effectively collect the R-internally
          *     allocated chunk when float_buffer is freed?
-         *  2. Is it necessary to call R internals to free the chunk?
-         *  3. Possible double-free is using 'MR_GC_register_finalizer'?
+         *  2. Is it necessary to call R internals to protect/unprotect/free
+         *      the R C-chunks?
+         *  3. Possible double-free if using 'MR_GC_register_finalizer'?
          */
 
                          Buffer->contents = Items;
+                         UNPROTECT(1);
                        ").
 
 :- pragma foreign_proc("C",
@@ -290,57 +329,94 @@ typedef struct {
                          if (start) setupRinC();
                          start = 0;
                          SEXP V = evalInR(X);
+                         if (! Rf_isVector(V))
+                         {
+                            UNPROTECT(1);
+                            Buffer = NULL;   /* Cannot coerce */
+                            return;
+                         }
+
+                         if (! Rf_isReal(V))
+                         {
+                             if (Rf_isLogical(V) || Rf_isInteger(V))
+                             {
+                                 PROTECT(V = Rf_coerceVector(V, REALSXP));
+                             }
+                             else
+                             {
+                               UNPROTECT(1);
+                               Buffer = NULL;   /* Cannot coerce */
+                               return;
+                             }
+                         }
+
                          Buffer = MR_GC_NEW(INT_BUFFER);
                          MR_Integer S = LENGTH(V);
-                         MR_Float *V1 = REAL(V);
                          Buffer->size = S;
 
-                         /* TODO:
-                         *
-                         * RInside currently implements 'evalInR' by returning double vectors.
-                         * It would be more efficient to reemplement this with interger vectors
-                         * using an ad-hoc 'evalIntegerVectorInR', therby avoiding the extra
-                         * MR_GC_malloc + floor below.
-                         * The above questions now concern the C-local SEXP V, not the int_buffer,
-                         * which is entirely allocated on the Mercury GC'd heap.
+                         /* For poorly understoof reasons, if V is an INTSXP,
+                            or any other type than REALSXP, it will not survive
+                            R garbage collection even when PROTECT is used.
+                            This might have been to do with the interplay of Mercury and R GC.
+                             * TODO: try to fix this costly recast.
                          */
 
+                         MR_Float *V1 = REAL(V);
                          Buffer->contents = MR_GC_malloc(sizeof(MR_Integer) * S);
                          for (int i = 0; i < S; ++i)
                             Buffer->contents[i] = floor(V1[i]);
+                         UNPROTECT(1);
                        ").
 
-:- pred lookup_int(int::in, int_buffer::in, int::out) is det.
 :- pred lookup_int_size(int_buffer::in, int::out) is det.
 :- pred lookup_float_size(float_buffer::in, int::out) is det.
+:- pred lookup_int(int::in, int_buffer::in, int::out) is det.
 :- pred lookup_float(int::in, float_buffer::in, float::out) is det.
 
 :- pragma foreign_proc("C",
                        lookup_int_size(Buffer::in, Value::out),
                        [will_not_call_mercury, promise_pure],
                        "
-                             Value=(MR_Integer) Buffer->size;
+                            if (Buffer == NULL)
+                               Value = 0;
+                            else
+                               Value = (MR_Integer) Buffer->size;
                        ").
 
 :- pragma foreign_proc("C",
                        lookup_float_size(Buffer::in, Value::out),
                        [will_not_call_mercury, promise_pure],
                        "
-                             Value=(MR_Integer) Buffer->size;
-                       ").
-
-:- pragma foreign_proc("C",
-                       lookup_float(Index::in, Buffer::in, Value::out),
-                       [will_not_call_mercury, promise_pure],
-                       "
-                             Value=(MR_Float) Buffer->contents[Index];
+                             if (Buffer == NULL)
+                                Value = 0;
+                             else
+                                Value = (MR_Integer) Buffer->size;
                        ").
 
 :- pragma foreign_proc("C",
                        lookup_int(Index::in, Buffer::in, Value::out),
                        [will_not_call_mercury, promise_pure],
                        "
-                             Value=(MR_Integer) Buffer->contents[Index];
+                             if (Buffer == NULL
+                                 || Buffer->contents == NULL
+                                 || Buffer->size <= 0
+                                 || Index <= 0)
+                                 Value = 0;
+                             else
+                                 Value=(MR_Integer) Buffer->contents[Index];
+                       ").
+
+:- pragma foreign_proc("C",
+                       lookup_float(Index::in, Buffer::in, Value::out),
+                       [will_not_call_mercury, promise_pure],
+                       "
+                             if (Buffer == NULL
+                                 || Buffer->contents == NULL
+                                 || Buffer->size <= 0
+                                 || Index <= 0)
+                                 Value = 0;
+                             else
+                                 Value = (MR_Float) Buffer->contents[Index];
                        ").
 
 % It should be easy to convert int_buffer or float_buffer into arrays or lists,
@@ -396,16 +472,16 @@ main(!IO) :-
              io.write_float(X12, !IO), io.nl(!IO),
              io.write_int(X13, !IO), io.nl(!IO),
              io.write_int(X14, !IO), io.nl(!IO),
-             int_vect("invisible({
-                data.table::fwrite(list(1:1E6), 'a.csv')
-                  # note: we could avoid casting to numeric
-                  # if evalInR alloaxed to return as integer vector.
-                  # to be developed.
+ %% note: testing the R internals type coertion
+ %% primitive: integer -> double -> MR_Float -> 'float'
+ %% primitive: logical -> double -> MR_Float -> 'float'
+             float_vect("invisible({
+                data.table::fwrite(list(c(rep(FALSE,1E6), rep(TRUE,1E6))), 'a.csv')
                 as.numeric(data.table::fread('a.csv')[[1]])})", Column),
-             lookup_int_size(Column, X15),io.nl(!IO),
+             lookup_float_size(Column, X15),io.nl(!IO),
              io.write_int(X15, !IO),io.nl(!IO),
-             lookup_int(500000, Column, X16),
-             io.write_int(X16, !IO),io.nl(!IO),
+             lookup_float(1500000, Column, X16),
+             io.write_float(X16, !IO),io.nl(!IO),
              stop_r .
 
 %% %% Test Output
