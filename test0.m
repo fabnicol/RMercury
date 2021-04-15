@@ -17,21 +17,40 @@
 %% Ave, Cambridge, MA 02139, USA.
 
 :- module test0.
-
 :- interface.
 
-:- import_module io.
+    % Mercury representation types for R vectors.
 
 :- type float_buffer.
+:- type string_buffer.
 :- type int_buffer.
 
-:- impure pred source(string::in) is det.
+    % Catch-all Mercury type for any type of R vector.
 
+:- type buffer.
+
+    % Impure predicates for sourcing R scripts.
+    % Should not be backtracked upon.
+    % No Mercury output, just R-managed IO.
+    %   source(RCode) : tries to suppress output.
+    %   source_echo(RCode).
+
+:- impure pred source(string::in) is det.
 :- impure pred source_echo(string::in) is det.
 
-:- pred float_vect(string::in, float_buffer::out) is det.
+    % Predicates for marshalling R script return values
+    % into Mercury code using the 'buffer' catch-all type.
+    % Reminder: no scalars in R, only vectors.
+    % Original R types are quite unsafe as R is dynamically
+    % typed. Using explicit type coercion prefixed to the
+    % names of the vector-catch predicates:
+    %   <type>_vect(RCode, Buffer).
 
-:- pred int_vect(string::in, int_buffer::out) is det.
+:- pred float_vect(string::in, buffer::out) is det.
+:- pred int_vect(string::in, buffer::out) is det.
+:- pred string_vect(string::in, buffer::out) is det.
+
+:- import_module io.
 
 :- impure pred main(io::di, io::uo) is det.
 
@@ -39,15 +58,16 @@
 
 :- implementation.
 
-:- import_module int.
 :- import_module bool.
 :- import_module char.
 :- import_module float.
-:- import_module string.
+:- import_module int.
+:- import_module list.
 :- import_module math.
+:- import_module string.
 
-        % Predicates for sourcing and evaluating R code.  Predicates
-        % performing C I/O, semipure or impure (pending evaluation).
+    % Predicates for sourcing and evaluating R code.  Predicates
+    % performing C I/O, semipure or impure (pending evaluation).
 
 :- pragma foreign_decl("C", "#include <RInside_C.h>").
 
@@ -81,9 +101,6 @@
 % Sourcing R code
 %
 
-% Mercury tweak: in embedded C code, double-quote double-quotes
-% and escape escape characters. Easy to remember!
-
 :- pragma foreign_proc("C",
                        source(X::in),
                        [will_not_call_mercury],
@@ -105,8 +122,6 @@
     % Predicates implementated as semipure (promised pure
     % or hopefully so). Starting with one-dimensional
     % real or integer output.
-    % Predicates of arity one flagged impure
-    % pending further evaluation.
 
 %% Mercury type           C type
 %% int                    MR_Integer
@@ -122,10 +137,11 @@
 %% float                  MR_Float
 %% char                   MR_Char
 %% string                 MR_String
-%% vector                 Possibly MR_ArrayPtr. Currently replaced by int_buffer/float_buffer.
+%% vector                 Possibly MR_ArrayPtr.
+%%                        Currently replaced by int_buffer/float_buffer.
 
 %-----------------------------------------------------------------------------%
-% Basic types
+% Evaluationg basic types for one-dimensional R vectors.
 %
 
 :- typeclass r_eval(T) where [
@@ -150,9 +166,7 @@
 
     % Predicates instanciating r_eval may be promised pure,
     % but do not rely on them for invoking internal state
-    % variables across calls.  Output is crushed.
-    % R variables are threaded to Mercury
-    % using the output mode variables.
+    % variables across calls.
 
 :- pred eval_string(string::in, string::out) is det.
 
@@ -168,17 +182,8 @@
                       ""z<-try({"",X,""});\
 if (inherits(z, 'try-error')) E <- 'R string error' else E <- z"");
 
-         // Important note: use a buffer here.
-         // writing Y = evalInRtoString(buf).string will NOT do.
-
-         R_StringResult res = evalInRToString(buf);
-
-         // More care & control of memory allocation than  with
-         // just strdup
-
-         MR_String a = MR_GC_NEW_ARRAY(char, res.length + 1);
-         memcpy(a, res.string, res.length);
-         Y = a;
+         SEXP res = evalInR(buf);
+         Y = (MR_String) CHAR(STRING_PTR(res)[0]);
     ").
 
 :- pred eval_int(string::in, int::out) is det.
@@ -200,7 +205,7 @@ if (inherits(z, 'try-error')) E <- 'R string error' else E <- z"");
                        "
                          if (start) setupRinC();
                          start = 0;
-                         float a = REAL(evalInR(X))[0];
+                         MR_Float a = REAL(evalInR(X))[0];
                          Z = (MR_Float) a;
                        ").
 
@@ -222,13 +227,17 @@ if (inherits(z, 'try-error')) E <- 'R string error' else E <- z"");
 write_bool(Value, !IO) :- (Value = yes -> write_string("TRUE", !IO)
                           ;  write_string("FALSE", !IO)).
 
+
 % ---------------------------------------------------------------------------%
-% Vectors
+% Mercury processing of R Vectors
 %
 
-  % Note that C-structures shoud not contain pointers
-  % beyond the first word, otherwise the GC will lose track.
-  % A first-rank Integer field is OK.
+    %-------------------------------------------------------------------------%
+    % Foreign C code
+
+    % Note that C-structures shoud not contain pointers
+    % beyond the first word, otherwise the GC will lose track.
+    % A first-rank Integer field is OK.
 
 :- pragma foreign_decl("C", "
 #include ""mercury_float.h""    /* For MR_FLT_FMT. */
@@ -240,24 +249,73 @@ write_bool(Value, !IO) :- (Value = yes -> write_string("TRUE", !IO)
 
 typedef struct {
     MR_Integer  size;
+    MR_Integer  *contents;
+} INT_BUFFER;
+
+typedef struct {
+    MR_Integer  size;
     MR_Float   *contents;
 } FLOAT_BUFFER;
 
 typedef struct {
     MR_Integer  size;
-    MR_Integer  *contents;
-} INT_BUFFER;
+    MR_String   *contents;
+} STRING_BUFFER;
 
+#define ASSIGN_SIZE(Value, Buffer) \
+do  {  if (Buffer == NULL) \
+          Value = 0;  \
+       else  \
+          Value = (MR_Integer) Buffer->size; } while(0)
 ").
 
-    % Mercury types corresponding to R integer() and numeric()
-    % with respective types int_buffer and float_buffer
+    % Mercury types corresponding to R integer(),  numeric() and character()
+    % with respective types int_buffer, float_buffer and string_buffer.
 
 :- pragma foreign_type("C", int_buffer, "INT_BUFFER *",
                        [can_pass_as_mercury_type]).
 
 :- pragma foreign_type("C", float_buffer, "FLOAT_BUFFER *",
                        [can_pass_as_mercury_type]).
+
+:- pragma foreign_type("C", string_buffer, "STRING_BUFFER *",
+                       [can_pass_as_mercury_type]).
+
+    % Catch-all Mercury representation type
+
+:- type buffer ---> int(int_buffer)
+                   ; float(float_buffer)
+                   ; string(string_buffer).
+
+    % Helper predicates: boolean type identification, getters and setters.
+
+:- pred is_int_buffer(buffer::in) is semidet.
+:- pred is_float_buffer(buffer::in) is semidet.
+:- pred is_string_buffer(buffer::in) is semidet.
+
+is_int_buffer(int(_)).
+is_float_buffer(float(_)).
+is_string_buffer(string(_)).
+
+:- func int_buffer(buffer) = int_buffer is semidet.
+:- func float_buffer(buffer) = float_buffer is semidet.
+:- func string_buffer(buffer) = string_buffer is semidet.
+
+int_buffer(Buffer) = Value :- int(Value) = Buffer.
+
+float_buffer(Buffer) = Value :- float(Value) = Buffer.
+
+string_buffer(Buffer) = Value :- string(Value) = Buffer.
+
+:- pred int_buffer(int_buffer::in, buffer::out).
+:- pred float_buffer(float_buffer::in, buffer::out).
+:- pred string_buffer(string_buffer::in, buffer::out).
+
+int_buffer(Value, Buffer) :- int(Value) = Buffer.
+
+float_buffer(Value, Buffer) :- float(Value) = Buffer.
+
+string_buffer(Value, Buffer) :- string(Value) = Buffer.
 
 %------------------------------------------------------------------------- %
 % R type casts
@@ -268,36 +326,59 @@ typedef struct {
 % We adopt an coertion approach: what counts is the target type fixed
 % by the prefix [type_] and we regard Boolean, Real and Integer vectors
 % in R as castable on return to the target Mercury type.
+% Warning: while this is true for nnumeric types, it is not always so
+% when the R source returns a string vector.
+% TODO: implement exception processing.
 %%
 
-    % float_vect(R_Code, float_buffer).
+    % c_float_vect(R_Code, float_buffer).
     %
     % Parse R code into a Mercury float_buffer.
-    % Coerces logical and integer vectors into MR_Float.
-    % Sets Buffer as NULL on error.
+    % Coerce logical and integer vectors into MR_Float.
+    % Set Buffer as NULL on error.
+
+:- pred c_float_vect(string::in, float_buffer::out) is det.
+
+float_vect(Code, Buffer) :- c_float_vect(Code, Buffer0),
+                            float_buffer(Buffer0, Buffer).
+
+:- pred c_string_vect(string::in, string_buffer::out) is det.
+
+string_vect(Code, Buffer) :- c_string_vect(Code, Buffer0),
+                           string_buffer(Buffer0, Buffer).
+
+:- pred c_int_vect(string::in, int_buffer::out) is det.
+
+int_vect(Code, Buffer) :- c_int_vect(Code, Buffer0),
+                            int_buffer(Buffer0, Buffer).
 
 :- pragma foreign_proc("C",
-                       float_vect(X::in, Buffer::out),
+                       c_float_vect(X::in, Buffer::out),
                        [will_not_call_mercury, promise_pure],
                        "
                          if (start) setupRinC();
                          start = 0;
                          SEXP V;
-                         PROTECT(V = evalInR(X));
+                         V = evalInR(X);
                          if (! Rf_isVector(V))
                          {
-                            UNPROTECT(1);
                             Buffer = NULL;   /* Cannot coerce */
                             return;
                          }
 
                          if (Rf_isLogical(V) || Rf_isInteger(V))
                          {
-                           PROTECT(V = Rf_coerceVector(V, REALSXP));
+                           V = Rf_coerceVector(V, REALSXP);
+
+                           /* PROTECT should be a non-op as the R runtime
+                            * is not fired, so the R GC is not either.
+                            * Using PROTECT in case code chunk
+                            * is ported back to R C-library code. */
+
+                           /* PROTECT(V = Rf_coerceVector(V, REALSXP)); */
                          }
                          else if (! Rf_isReal(V))
                          {
-                           UNPROTECT(1); /* V */
                            Buffer = NULL;   /* Cannot coerce */
                            return;
                          }
@@ -313,17 +394,19 @@ typedef struct {
          /* TODO:
          *  1. Does the GC effectively collect the R-internally
          *     allocated chunk when float_buffer is freed?
-         *  2. Is it necessary to call R internals to protect/unprotect/free
-         *      the R C-chunks?
-         *  3. Possible double-free if using 'MR_GC_register_finalizer'?
+         *  2. Using 'MR_GC_register_finalizer'?
          */
 
                          Buffer->contents = Items;
-                         UNPROTECT(1);
+
+                         /* Normally a non-op in Mercury C-code.
+                          * To be used if ported back */
+
+                         /* UNPROTECT(1); */
                        ").
 
 :- pragma foreign_proc("C",
-                       int_vect(X::in, Buffer::out),
+                       c_int_vect(X::in, Buffer::out),
                        [will_not_call_mercury, promise_pure],
                        "
                          if (start) setupRinC();
@@ -331,20 +414,22 @@ typedef struct {
                          SEXP V = evalInR(X);
                          if (! Rf_isVector(V))
                          {
-                            UNPROTECT(1);
                             Buffer = NULL;   /* Cannot coerce */
                             return;
                          }
+
+                         /* See above comments wrt PROTECT/UNPROTECT */
 
                          if (! Rf_isReal(V))
                          {
                              if (Rf_isLogical(V) || Rf_isInteger(V))
                              {
-                                 PROTECT(V = Rf_coerceVector(V, REALSXP));
+                                 V = Rf_coerceVector(V, REALSXP);
+                                 /* PROTECT(V = Rf_coerceVector(V, REALSXP)); */
                              }
                              else
                              {
-                               UNPROTECT(1);
+                               /* UNPROTECT(1); */
                                Buffer = NULL;   /* Cannot coerce */
                                return;
                              }
@@ -356,68 +441,303 @@ typedef struct {
 
                          /* For poorly understoof reasons, if V is an INTSXP,
                             or any other type than REALSXP, it will not survive
-                            R garbage collection even when PROTECT is used.
-                            This might have been to do with the interplay of Mercury and R GC.
-                             * TODO: try to fix this costly recast.
+                            garbage collection.
+                            This might have been to do with the interplay of Mercury
+                            and R-allocated memory.
+                         *  TODO: try to fix this costly recast.
                          */
 
                          MR_Float *V1 = REAL(V);
                          Buffer->contents = MR_GC_malloc(sizeof(MR_Integer) * S);
                          for (int i = 0; i < S; ++i)
                             Buffer->contents[i] = floor(V1[i]);
-                         UNPROTECT(1);
+
+                         /* UNPROTECT(1); */
                        ").
 
-:- pred lookup_int_size(int_buffer::in, int::out) is det.
-:- pred lookup_float_size(float_buffer::in, int::out) is det.
-:- pred lookup_int(int::in, int_buffer::in, int::out) is det.
-:- pred lookup_float(int::in, float_buffer::in, float::out) is det.
 
 :- pragma foreign_proc("C",
-                       lookup_int_size(Buffer::in, Value::out),
+                       c_string_vect(X::in, Buffer::out),
                        [will_not_call_mercury, promise_pure],
                        "
-                            if (Buffer == NULL)
-                               Value = 0;
-                            else
-                               Value = (MR_Integer) Buffer->size;
-                       ").
+                         if (start) setupRinC();
+                         start = 0;
+                         SEXP V = evalInR(X);
+                         if (V == NULL || ! Rf_isVector(V))
+                         {
+                            Buffer = NULL;   /* Cannot coerce */
+                            return;
+                         }
 
-:- pragma foreign_proc("C",
-                       lookup_float_size(Buffer::in, Value::out),
-                       [will_not_call_mercury, promise_pure],
-                       "
-                             if (Buffer == NULL)
-                                Value = 0;
+                         /* See above comments wrt PROTECT/UNPROTECT */
+
+                         if (! Rf_isString(V))
+                         {
+                             if (Rf_isLogical(V) || Rf_isInteger(V) || Rf_isReal(V))
+                             {
+                                 V = Rf_coerceVector(V, STRSXP);
+                                 /* PROTECT(V = Rf_coerceVector(V, STRSXP)); */
+                             }
                              else
-                                Value = (MR_Integer) Buffer->size;
+                             {
+                               /* UNPROTECT(1); */
+                               Buffer = NULL;   /* Cannot coerce */
+                               return;
+                             }
+                         }
+
+                         if (V == NULL || ! Rf_isString(V))
+                         {
+                            Buffer = NULL;   /* Cannot coerce */
+                            return;
+                         }
+
+                         Buffer = MR_GC_NEW(STRING_BUFFER);
+                         MR_Integer S = LENGTH(V);
+                         Buffer->size = S;
+                         SEXP *ptr = STRING_PTR(V);
+                         Buffer->contents = MR_GC_malloc(sizeof(MR_String) * S);
+                         for (int i = 0; i < S; ++i)
+{
+                         fprintf(stderr, ""%s\\n"", ""ok"");
+                         Buffer->contents[i] = CHAR(ptr[i]);
+                         fprintf(stderr, ""--- %s\\n"", Buffer->contents[i]);
+}
+                         /* UNPROTECT(1); */
                        ").
 
+:- pred lookup_int_vect_size(int_buffer::in, int::out) is det.
+
+:- func lookup_int_vect_size(int_buffer) = int.
+
+lookup_int_vect_size(Buffer) = Size :- lookup_int_vect_size(Buffer, Size).
+
+:- pred lookup_float_vect_size(float_buffer::in, int::out) is det.
+
+:- func lookup_float_vect_size(float_buffer) = int.
+
+lookup_float_vect_size(Buffer) = Size :- lookup_float_vect_size(Buffer, Size).
+
+:- pred lookup_string_vect_size(string_buffer::in, int::out) is det.
+
+:- func lookup_string_vect_size(string_buffer) = int.
+
+lookup_string_vect_size(Buffer) = Size :- lookup_string_vect_size(Buffer, Size).
+
+:- type buffer_item ---> float_base(float)
+                        ; int_base(int)
+                        ; string_base(string).
+
+:- pred lookup(int::in, buffer::in, buffer_item::out) is det.
+
+:- pred lookup_int_vect(int::in, int_buffer::in, int::out) is det.
+
+:- pred lookup_float_vect(int::in, float_buffer::in, float::out) is det.
+
+:- pred lookup_string_vect(int::in, string_buffer::in, string::out) is det.
+
+lookup(Index, Buffer, Item) :-
+    (
+       is_int_buffer(Buffer) ->
+         (
+             lookup_int_vect(Index, int_buffer(Buffer), Value)
+         ->
+               Item = int_base(Value)
+          ;
+               Item = int_base(0)
+          )
+    ;
+       is_float_buffer(Buffer) ->
+         (
+             lookup_float_vect(Index, float_buffer(Buffer), Value)
+         ->
+               Item = float_base(Value)
+         ;
+               Item = float_base(0.0)
+         )
+    ;
+       is_string_buffer(Buffer) ->
+          (
+              lookup_string_vect(Index, string_buffer(Buffer), Value)
+          ->
+                Item = string_base(Value)
+          ;
+                Item = string_base("")
+          )
+    ;
+        Item = string_base("")
+    ).
+
+:- pred marshall_vect_to_list(int::in,
+                                     int::in,
+                                     buffer::in,
+                                     list(buffer_item)::out) is det.
+
+marshall_vect_to_list(Start, End, Buffer, L) :-
+   S = length(Buffer),
+   (  End < S, End >= 0, Start >= 0, Start =< End ->
+        marshall_helper(Start, End, Buffer, length(Buffer), [], L)
+    ;
+      L = []
+   ).
+
+:- pred marshall_helper(int::in,
+                        int::in,
+                        buffer::in,
+                        int::in,
+                        list(buffer_item)::in,
+                        list(buffer_item)::out) is det.
+
+marshall_helper(Start, Index, Buffer, Size, L0, L1) :-
+    lookup(Index, Buffer, Value),
+    L = [ Value | L0],
+    (
+       Index = Start -> L1 = L
+    ;
+       marshall_helper(Start, Index - 1, Buffer, Size, L, L1)
+    ).
+
+:- func marshall_vect_to_list(buffer) = list(buffer_item).
+
+marshall_vect_to_list(Buffer) = List :-
+    marshall_vect_to_list(0, length(Buffer) - 1, Buffer, List).
+
+:- typeclass length(T)
+   where [
+      pred length(T, int),
+      mode length(in, out) is det,
+      func length(T) = int
+   ].
+
+:- typeclass to_list(U)
+   where [
+       pred to_list(int::in, int::in, buffer::in, list(U)::out) is det,
+       func to_list(buffer) = list(U)
+   ].
+
+:- instance to_list(buffer_item) where [
+       pred(to_list/4) is marshall_vect_to_list,
+       func(to_list/1) is marshall_vect_to_list
+   ].
+
+:- instance length(buffer) where [
+       pred(length/2) is lookup_buffer_vect_size,
+       func(length/1) is lookup_buffer_vect_size
+].
+
+:- pred write_item(buffer_item::in, io::di, io::uo) is det.
+
+write_item(Item, !IO) :-
+    (
+        Item = int_base(Value) ->
+          io.write_int(Value, !IO)
+    ;
+        Item = float_base(Value) ->
+          io.write_float(Value, !IO)
+    ;
+        Item = string_base(Value) ->
+          io.write_string(Value, !IO)
+    ;
+        io.nl(!IO)
+    ).
+
+:- pred lookup_buffer_vect_size(buffer::in, int::out) is det.
+
+:- func lookup_buffer_vect_size(buffer) = int.
+
+lookup_buffer_vect_size(Buffer, Value) :-
+    (
+      if is_float_buffer(Buffer)
+      then
+         (
+           if  lookup_float_vect_size(float_buffer(Buffer), X)
+           then
+               Value = X
+           else
+               Value = 0
+         )
+      else if is_int_buffer(Buffer)
+      then
+          (
+            if  lookup_int_vect_size(int_buffer(Buffer), X)
+            then
+              Value = X
+            else
+              Value = 0
+          )
+      else if is_string_buffer(Buffer)
+      then
+          (
+            if lookup_string_vect_size(string_buffer(Buffer), X)
+            then
+              Value = X
+            else
+              Value = 0
+          )
+      else
+        Value = 0
+    ).
+
+lookup_buffer_vect_size(Buffer) = Value :- lookup_buffer_vect_size(Buffer, Value).
+
 :- pragma foreign_proc("C",
-                       lookup_int(Index::in, Buffer::in, Value::out),
+                       lookup_int_vect_size(Buffer::in, Value::out),
+                       [will_not_call_mercury, promise_pure],
+                       " ASSIGN_SIZE(Value, Buffer);").
+
+:- pragma foreign_proc("C",
+                       lookup_float_vect_size(Buffer::in, Value::out),
+                       [will_not_call_mercury, promise_pure],
+                       " ASSIGN_SIZE(Value, Buffer);").
+
+:- pragma foreign_proc("C",
+                       lookup_string_vect_size(Buffer::in, Value::out),
+                       [will_not_call_mercury, promise_pure],
+                       " ASSIGN_SIZE(Value, Buffer);").
+
+:- pragma foreign_proc("C",
+                       lookup_int_vect(Index::in, Buffer::in, Value::out),
                        [will_not_call_mercury, promise_pure],
                        "
                              if (Buffer == NULL
                                  || Buffer->contents == NULL
                                  || Buffer->size <= 0
-                                 || Index <= 0)
+                                 || Index < 0)
                                  Value = 0;
                              else
                                  Value=(MR_Integer) Buffer->contents[Index];
                        ").
 
 :- pragma foreign_proc("C",
-                       lookup_float(Index::in, Buffer::in, Value::out),
+                       lookup_float_vect(Index::in, Buffer::in, Value::out),
                        [will_not_call_mercury, promise_pure],
                        "
                              if (Buffer == NULL
                                  || Buffer->contents == NULL
                                  || Buffer->size <= 0
-                                 || Index <= 0)
+                                 || Index < 0)
                                  Value = 0;
                              else
                                  Value = (MR_Float) Buffer->contents[Index];
                        ").
+
+:- pragma foreign_proc("C",
+                       lookup_string_vect(Index::in, Buffer::in, Value::out),
+                       [will_not_call_mercury, promise_pure],
+                       "
+                             if (Buffer == NULL)
+                                 Value = ""NA_BUFFER"";
+                             else if (Buffer->contents == NULL)
+                                 Value = ""NA_BUFFER_CONTENTS"";
+                             else if (Buffer->size <= 0)
+                                 Value = ""NA_BUFFER_SIZE"";
+                             else if (Index < 0 || Index > Buffer->size - 1)
+                                 Value = ""NA_BUFFER_INDEX"";
+                             else
+                                 Value = (MR_String) Buffer->contents[Index];
+                       ").
+
+
 
 % It should be easy to convert int_buffer or float_buffer into arrays or lists,
 % using item setters and iterating.
@@ -463,25 +783,43 @@ main(!IO) :-
              io.write_float(X7,!IO), io.nl(!IO),
              io.write_int(X8,  !IO), io.nl(!IO),
              float_vect("c(1.0,2.0,3.0,4.0,5.0)", X9),
-             lookup_float(3, X9, X12),
-             lookup_float_size(X9, X14),
+             lookup(3, X9, X12),
+             length(X9, X14),
              int_vect("c(1,2,3,4)", X10),
-             lookup_int(2, X10, X11),
-             lookup_int_size(X10, X13),
-             io.write_int(X11, !IO), io.nl(!IO),
-             io.write_float(X12, !IO), io.nl(!IO),
-             io.write_int(X13, !IO), io.nl(!IO),
-             io.write_int(X14, !IO), io.nl(!IO),
+             lookup(2, X10, X11),
+             length(X10, X13),
+             write_item(X11, !IO), io.nl(!IO),
+             write_item(X12, !IO), io.nl(!IO),
+             write_int(X13, !IO), io.nl(!IO),
+             write_int(X14, !IO), io.nl(!IO),
  %% note: testing the R internals type coertion
  %% primitive: integer -> double -> MR_Float -> 'float'
  %% primitive: logical -> double -> MR_Float -> 'float'
              float_vect("invisible({
                 data.table::fwrite(list(c(rep(FALSE,1E6), rep(TRUE,1E6))), 'a.csv')
                 as.numeric(data.table::fread('a.csv')[[1]])})", Column),
-             lookup_float_size(Column, X15),io.nl(!IO),
-             io.write_int(X15, !IO),io.nl(!IO),
-             lookup_float(1500000, Column, X16),
-             io.write_float(X16, !IO),io.nl(!IO),
+             length(Column, X15),io.nl(!IO),
+             write_int(X15, !IO),io.nl(!IO),
+             lookup(1500000, Column, X16),
+             write_item(X16, !IO),io.nl(!IO),
+             string_vect("c(""abcd"", ""efgh"")", X17),
+             lookup(1, X17, X18),
+             write_item(X18, !IO),
+             length(X17, X19),io.nl(!IO),
+             write_int(X19, !IO),io.nl(!IO),
+             int_vect("c(1234, 5678)", X20), % type coertion from int to string.
+             lookup(0, X20, X21),
+             write_item(X21, !IO),
+             length(X20, X22),io.nl(!IO),
+             write_int(X22, !IO),io.nl(!IO),
+% cast R string vectors to list(string).
+             write_item(det_index0(to_list(X20), 0), !IO), io.nl(!IO),
+             float_vect("c(1234.0, 5678.0,4.5)", X23),
+% type coertion from string to float will fail: should catch this.
+             lookup(0, X23, X24),
+             write_item(X24, !IO), io.nl(!IO),
+             write_item(det_index0(to_list(X23), 0), !IO),
+             io.nl(!IO),
              stop_r .
 
 %% %% Test Output

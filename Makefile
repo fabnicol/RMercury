@@ -1,4 +1,4 @@
-MMC = mmc
+MMC = /usr/local/mercury-DEV/bin/mmc
 PARALLEL =
 files = $(wildcard *.m)
 
