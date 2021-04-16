@@ -1,26 +1,30 @@
-%% File: test0.m Purpose: An R interface for Mercury: proof of concept.
-%% Copyright Fabrice Nicol <fabnicol@users.sourceforge.net>, 2021 The latest
-%% version can be found at http://github.com/fabnicol
+% File: test0.m Purpose: An R interface for Mercury: proof of concept.
+% Copyright Fabrice Nicol <fabnicol@users.sourceforge.net>, 2021 The latest
+% version can be found at http://github.com/fabnicol
 
-%% This program is free software; you can redistribute it and/or modify it under
-%% the terms of the GNU General Public License as published by the Free Software
-%% Foundation; either version 3 of the License, or (at your option) any later
-%% version.
+% This program is free software; you can redistribute it and/or modify it under
+% the terms of the GNU General Public License as published by the Free Software
+% Foundation; either version 3 of the License, or (at your option) any later
+% version.
 
-%% This program is distributed in the hope that it will be useful, but WITHOUT
-%% ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-%% FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
-%% details.
+% This program is distributed in the hope that it will be useful, but WITHOUT
+% ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+% FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+% details.
 
-%% You should have received a copy of the GNU General Public License along with
-%% this program; if not, write to the Free Software Foundation, Inc., 675 Mass
-    %% Ave, Cambridge, MA 02139, USA.
+% You should have received a copy of the GNU General Public License along with
+% this program; if not, write to the Free Software Foundation, Inc., 675 Mass
+% Ave, Cambridge, MA 02139, USA.
 
 :- module test0.
 :- interface.
 
 :- import_module io.
 :- import_module bool.
+
+    % Global behavior parameters
+
+:- type r_globals.
 
     % Mercury representation types for R vectors.
 
@@ -108,7 +112,15 @@
     %
     % Mercury typed buffer lookup predicates: get value of buffer
     % at 0-based index.
-    % More efficient for large data bases.
+    % On error:
+    % For numeric types, return 0 if buffer is not accessible, or index
+    % is out of bounds [0, Size-1].
+    % For strings, return NA_BUFFER for null C buffer, NA_BUFFER_CONTENTS
+    % for null C buffer underlying data array, NA_BUFFER_SIZE for empty buffer
+    % and NA_BUFFER_INDEX for index out of bounds [0, Size-1].
+    % Note: More efficient for large data bases.
+    % Warning: Currently empty R vectors are causing an error when accessed
+    % in Mercury. This behavior should be changed.
 
 :- pred lookup_int_vect(int_buffer::in, int::in, int::out) is det.
 :- pred lookup_float_vect(float_buffer::in, int::in, float::out) is det.
@@ -121,6 +133,9 @@
 
 :- pred lookup(buffer::in, int::in, buffer_item::out) is det.
 
+    % Marshalling classes from R object representation to standard data types.
+    %
+
    % Printer of booleans in R-type format (TRUE/FALSE)
 
 :- pred write_bool(bool::in, io::di, io::uo) is det.
@@ -131,7 +146,7 @@
 
 :- impure pred main(io::di, io::uo) is det.
 
-%----------------------------------------------%
+%-----------------------------------------------------------------------------%
 
 :- implementation.
 
@@ -141,6 +156,15 @@
 :- import_module list.
 :- import_module math.
 :- import_module string.
+
+:- type infinitives
+    --->    allow_infinitives
+    ;       allow_not_a_number
+    ;       do_not_allow_infinitives.
+    ;       do_not_allow_not_a_number.
+
+:- type behavior
+    --->    behavior(numeric :: infinitives). % to be augmented
 
     % Predicates for sourcing and evaluating R code.  Predicates
     % performing C I/O, semipure or impure (pending evaluation).
@@ -196,7 +220,56 @@
 ").
 
 %-----------------------------------------------------------------------------%
-% Evaluationg basic types for one-dimensional R vectors.
+% Exception handling (bound check)
+%
+
+:- pred check_finite(string::in, (some [T] pred(string::in, T::out) is det),
+         behavior::in, buffer_item::out).
+
+check_finite(Code, Predicate, Behavior, Result) :-
+    ( try [io(!IO)] (
+        Predicate(Code, Ret), % eval_int0(Code, Result)
+    )
+    then
+        (if
+           is_inf(Ret)
+        then
+            (if
+                Behavior ^ numeric = allow_infinitives
+            then
+                write_string("Returned +Infinity.\n", !IO)
+            else if
+                Behavior ^ numeric = do_not_allow_infinitives
+            then
+                throw(domain_error("Returned +Infinity yet \
+                    +/- Infinity are not allowed."))
+            else
+                true
+            )
+        else if
+            is_nan(Ret)
+        then
+            (if
+                Behavior ^ numeric = allow_not_a_number
+            then
+                write_string("Returned NAN.\n", !IO)
+            else if
+                Behavior ^ numeric = do_not_allow_not_a_number
+            then
+                throw(domain_error("Returned NAN yet \
+                    NAN is not allowed."))
+            else
+                true
+            )
+        else
+            true
+        )
+    catch_any Excp ->
+            io.format(File, "Returned: EXCP (%s)\n", [s(string(Excp))], !IO)
+    ).
+
+%-----------------------------------------------------------------------------%
+% Evaluating basic types for one-dimensional R vectors.
 %
 
 :- instance r_eval(string) where [
@@ -237,10 +310,17 @@ SEXP res = evalInR(buf);
 Y = (MR_String) CHAR(STRING_PTR(res)[0]);
 ").
 
-:- pred eval_int(string::in, int::out) is det.
+:- pred eval_int(string::in, behavior::in,  buffer_item::out) is det.
+
+eval_int(Code, Behavior, Result) :-
+    check_finite(Code, eval_int0(Code, Ret), int.min_int,
+        int.max_int, Behavior, Result),
+    Result = int(Ret).
+
+:- pred eval_int0(string::in, int::out) is det.
 
 :- pragma foreign_proc("C",
-    eval_int(X::in, Z::out),
+    eval_int0(X::in, Z::out),
     [promise_pure, will_not_call_mercury],
 "
 if (start) setupRinC();
@@ -275,10 +355,24 @@ Z = (MR_Bool) a;
 ").
 
 % ------------------------------------------------------------------------%
-% Mercury processing of R Vectors
+% Mercury processing of R Vectors into foreign C-typed buffers.
 %
 
-%-------------------------------------------------------------------------%
+    %-------------------------------------------------------------------------%
+    % A note on R-to-Mercury type casting
+    %
+    % R is a dynamically-typed language whose returns are not type-safe.
+    % Sometimes integer vectors will be returned as double vectors,
+    % sometimes as integer vectors. Booleans and factors are often cast.
+    % We adopt an coertion approach: what counts is the target type fixed
+    % by the prefix [type_] and we regard Boolean, Real and Integer vectors
+    % in R as castable on return to the target Mercury type,
+    % using Rf_coerceVector.
+    %
+    % Warning: while this is true for numeric types, it is not always so
+    % when the R source returns a string vector.
+    % TODO: implement exception processing.
+    %%
 
     % Catch-all Mercury representation types for R vectors and vector elements
 
@@ -367,21 +461,6 @@ int_buffer(Value, Buffer) :- int(Value) = Buffer.
 float_buffer(Value, Buffer) :- float(Value) = Buffer.
 
 string_buffer(Value, Buffer) :- string(Value) = Buffer.
-
-%------------------------------------------------------------------------- %
-% Mercury processing R vector types
-%
-% R is a dynamically-typed language whose returns are not type-safe.
-% Sometimes integer vectors will be returned as double vectors,
-% sometimes as integer vectors. Booleans and factors are often cast.
-% We adopt an coertion approach: what counts is the target type fixed
-% by the prefix [type_] and we regard Boolean, Real and Integer vectors
-% in R as castable on return to the target Mercury type, using Rf_coerceVector.
-%
-% Warning: while this is true for numeric types, it is not always so
-% when the R source returns a string vector.
-% TODO: implement exception processing.
-%%
 
     % c_int_vect(R_Code, int_buffer).
     %
@@ -476,7 +555,7 @@ if (! Rf_isVector(V)) {
 }
 
 if (Rf_isLogical(V) || Rf_isInteger(V) || Rf_isString(V)) {
-    V = Rf_coerceVector(V, REALSXP);
+H    V = Rf_coerceVector(V, REALSXP);
 
     /* PROTECT should be a non-op as the R runtime
     * is not fired, so the R GC is not either.
@@ -565,9 +644,10 @@ for (int i = 0; i < S; ++i) {
 /* UNPROTECT(1); */
 ").
 
-%-----------------------------------------------------------------------------%
-% Mercury accessors to buffer-type representation of R vectors.
-%
+    %-------------------------------------------------------------------------%
+    % Mercury accessors to buffer-type representation of R vectors.
+    %
+
     % Size accessors
     %
 
@@ -583,28 +663,31 @@ for (int i = 0; i < S; ++i) {
 :- pred lookup_string_vect_size(string_buffer::in, int::out) is det.
 :- func lookup_string_vect_size(string_buffer) = int.
 
-lookup_int_vect_size(Buffer) = Size :- lookup_int_vect_size(Buffer, Size).
+lookup_int_vect_size(Buffer) = Size :-
+    lookup_int_vect_size(Buffer, Size).
 
-lookup_float_vect_size(Buffer) = Size :- lookup_float_vect_size(Buffer, Size).
+lookup_float_vect_size(Buffer) = Size :-
+    lookup_float_vect_size(Buffer, Size).
 
-lookup_string_vect_size(Buffer) = Size :- lookup_string_vect_size(Buffer, Size).
+lookup_string_vect_size(Buffer) = Size :-
+    lookup_string_vect_size(Buffer, Size).
 
     % Implementation C code
 
 :- pragma foreign_proc("C",
-                       lookup_int_vect_size(Buffer::in, Value::out),
-                       [will_not_call_mercury, promise_pure],
-                       " ASSIGN_SIZE(Value, Buffer);").
+    lookup_int_vect_size(Buffer::in, Value::out),
+    [will_not_call_mercury, promise_pure],
+" ASSIGN_SIZE(Value, Buffer);").
 
 :- pragma foreign_proc("C",
-                       lookup_float_vect_size(Buffer::in, Value::out),
-                       [will_not_call_mercury, promise_pure],
-                       " ASSIGN_SIZE(Value, Buffer);").
+    lookup_float_vect_size(Buffer::in, Value::out),
+    [will_not_call_mercury, promise_pure],
+" ASSIGN_SIZE(Value, Buffer);").
 
 :- pragma foreign_proc("C",
-                       lookup_string_vect_size(Buffer::in, Value::out),
-                       [will_not_call_mercury, promise_pure],
-                       " ASSIGN_SIZE(Value, Buffer);").
+    lookup_string_vect_size(Buffer::in, Value::out),
+    [will_not_call_mercury, promise_pure],
+" ASSIGN_SIZE(Value, Buffer);").
 
     % lookup_buffer_vect_size(Buffer, Size)
     %
@@ -614,25 +697,31 @@ lookup_string_vect_size(Buffer) = Size :- lookup_string_vect_size(Buffer, Size).
 :- func lookup_buffer_vect_size(buffer) = int.
 
 lookup_buffer_vect_size(Buffer, Value) :-
-    ( if is_float_buffer(Buffer)
+    ( if
+        is_float_buffer(Buffer)
     then
-        ( if  lookup_float_vect_size(float_buffer(Buffer), X)
+        ( if
+            lookup_float_vect_size(float_buffer(Buffer), X)
         then
             Value = X
         else
             Value = 0
         )
-    else if is_int_buffer(Buffer)
+    else if
+        is_int_buffer(Buffer)
     then
-        ( if  lookup_int_vect_size(int_buffer(Buffer), X)
+        ( if
+            lookup_int_vect_size(int_buffer(Buffer), X)
         then
             Value = X
         else
             Value = 0
         )
-    else if is_string_buffer(Buffer)
+    else if
+        is_string_buffer(Buffer)
     then
-         ( if lookup_string_vect_size(string_buffer(Buffer), X)
+        ( if
+            lookup_string_vect_size(string_buffer(Buffer), X)
          then
               Value = X
          else
@@ -642,7 +731,8 @@ lookup_buffer_vect_size(Buffer, Value) :-
         Value = 0
     ).
 
-lookup_buffer_vect_size(Buffer) = Value :- lookup_buffer_vect_size(Buffer, Value).
+lookup_buffer_vect_size(Buffer) = Value :-
+    lookup_buffer_vect_size(Buffer, Value).
 
     % Using typeclass 'length' for a more polymorphic interface.
     % Later to be expanded with other types than 'buffer'.
@@ -659,13 +749,15 @@ lookup_buffer_vect_size(Buffer) = Value :- lookup_buffer_vect_size(Buffer, Value
 ].
 
     %-------------------------------------------------------------------------%
-    % Item lookup accessors.
+    % Vector item lookup accessors.
     %
+
+    % C code implementation
 
 :- pragma foreign_proc("C",
     lookup_int_vect(Index::in, Buffer::in, Value::out),
     [will_not_call_mercury, promise_pure],
-    "
+"
 if (Buffer == NULL
       || Buffer->contents == NULL
       || Buffer->size <= 0
@@ -674,7 +766,7 @@ if (Buffer == NULL
     Value = 0;
 else
     Value=(MR_Integer) Buffer->contents[Index];
-    ").
+").
 
 :- pragma foreign_proc("C",
     lookup_float_vect(Index::in, Buffer::in, Value::out),
@@ -706,53 +798,63 @@ else
     Value = (MR_String) Buffer->contents[Index];
 ").
 
+    % Vector item lookup predicate for 'buffer'-type vectors
+    %
+    % Index is zero-based.
+
 lookup(Index, Buffer, Item) :-
-    (
-        is_int_buffer(Buffer) ->
-        (
+    ( if
+        is_int_buffer(Buffer)
+    then
+        ( if
             lookup_int_vect(Index, int_buffer(Buffer), Value)
-        ->
-        Item = int_base(Value)
-        ;
-        Item = int_base(0)
+        then
+            Item = int_base(Value)
+        else
+            Item = int_base(0)
         )
-    ;
-    is_float_buffer(Buffer) ->
-    (
-        lookup_float_vect(Index, float_buffer(Buffer), Value)
-    ->
-    Item = float_base(Value)
-    ;
-    Item = float_base(0.0)
-    )
-    ;
-    is_string_buffer(Buffer) ->
-    (
-        lookup_string_vect(Index, string_buffer(Buffer), Value)
-    ->
-    Item = string_base(Value)
-    ;
-    Item = string_base("")
-    )
-    ;
-    Item = string_base("")
+    else if
+        is_float_buffer(Buffer)
+    then
+        ( if
+            lookup_float_vect(Index, float_buffer(Buffer), Value)
+        then
+            Item = float_base(Value)
+        else
+            Item = float_base(0.0)
+        )
+    else if
+        is_string_buffer(Buffer)
+    then
+        ( if
+            lookup_string_vect(Index, string_buffer(Buffer), Value)
+        then
+            Item = string_base(Value)
+        else
+            Item = string_base("")
+        )
+    else
+        Item = string_base("")
     ).
 
 %-----------------------------------------------------------------------------%
 % Marshalling to Mercury data types
 %
 
-   %--------------------------------------------------------------------------%
-   % To list
+    %%
+    % To list
+    %
 
 :- pred marshall_vect_to_list(int::in, int::in, buffer::in,
                               list(buffer_item)::out) is det.
 
 marshall_vect_to_list(Start, End, Buffer, L) :-
     S = length(Buffer),
-    (  End < S, End >= 0, Start >= 0, Start =< End ->
+    ( if
+        End < S, End >= 0, Start >= 0, Start =< End
+    then
         marshall_helper(Start, End, Buffer, length(Buffer), [], L)
-    ;
+    else
         L = []
     ).
 
@@ -762,9 +864,11 @@ marshall_vect_to_list(Start, End, Buffer, L) :-
 marshall_helper(Start, Index, Buffer, Size, L0, L1) :-
     lookup(Index, Buffer, Value),
     L = [ Value | L0],
-    (
-        Index = Start -> L1 = L
-    ;
+    ( if
+        Index = Start
+    then
+        L1 = L
+    else
         marshall_helper(Start, Index - 1, Buffer, Size, L, L1)
     ).
 
@@ -773,12 +877,15 @@ marshall_helper(Start, Index, Buffer, Size, L0, L1) :-
 marshall_vect_to_list(Buffer) = List :-
     marshall_vect_to_list(0, length(Buffer) - 1, Buffer, List).
 
-:- typeclass to_list(U) where [
-    pred to_list(int::in, int::in, buffer::in, list(U)::out) is det,
-    func to_list(buffer) = list(U)
+:- typeclass to_list(U, V) where [
+    pred to_list(int::in, int::in, U::in, list(V)::out) is det,
+    func to_list(U) = list(V)
 ].
 
-:- instance to_list(buffer_item) where [
+    % Currently to_list ins only instanciated for 'buffer' types
+    % This should change when moving on to dates, events etc.
+
+:- instance to_list(buffer, buffer_item) where [
     pred(to_list/4) is marshall_vect_to_list,
     func(to_list/1) is marshall_vect_to_list
 ].
@@ -791,7 +898,8 @@ marshall_vect_to_list(Buffer) = List :-
     % Is this really useful? Hum.
 
 write_bool(Value, !IO) :-
-    ( if Value = yes
+    ( if
+        Value = yes
     then
         write_string("TRUE", !IO)
     else
@@ -801,28 +909,26 @@ write_bool(Value, !IO) :-
     % Print helper for catch-all type 'buffer_item'
 
 write_item(Item, !IO) :-
-    ( if Item = int_base(Value)
+    ( if
+        Item = int_base(Value)
     then
         io.write_int(Value, !IO)
+    else if
+        Item = float_base(Value)
+    then
+        io.write_float(Value, !IO)
+    else if
+        Item = string_base(Value)
+    then
+        io.write_string(Value, !IO)
     else
-        ( if Item = float_base(Value)
-        then
-            io.write_float(Value, !IO)
-        else
-            ( if Item = string_base(Value)
-            then
-                io.write_string(Value, !IO)
-            else
-                io.nl(!IO)
-            )
-        )
+        io.nl(!IO)
     ).
 %-----------------------------------------------------------------------------%
 % It should be easy to convert int_buffer or float_buffer into arrays or lists,
 % using item setters and iterating.
 % Yet ideally it would be nice to allow the 'elements' C-array
 % to take ownership of int/float_buffer 'contents' C-array
-% already allocated on the GC heap (int_buffer) or by R internals (float_buffer)
 % without a further copy operation.
 
 %-----------------------------------------------------------------------------%
