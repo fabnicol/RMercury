@@ -22,10 +22,6 @@
 :- import_module io.
 :- import_module bool.
 
-    % Global behavior parameters
-
-:- type r_globals.
-
     % Mercury representation types for R vectors.
 
 :- type float_buffer.
@@ -40,7 +36,17 @@
 
 :- type buffer_item.
 
-    % source_echo(RCode).
+    % Numeric behabior
+
+:- type allow
+    --->    allow(inf :: bool, nan :: bool).
+
+    % More general behavior fields
+
+:- type behavior
+    --->    behavior(numeric :: allow). % to be augmented
+
+% source_echo(RCode).
     % source(RCode) : tries to suppress output.
     %
     % Impure predicates for sourcing R scripts.
@@ -56,7 +62,7 @@
     % TODO: typeclass-constraints on T?
 
 :- typeclass r_eval(T) where [
-    pred eval(string::in, T::out) is det
+    pred eval(string::in, T::out, io::di, io::uo) is det
 ].
 
     % <type>_vect(RCode, Buffer)
@@ -71,10 +77,6 @@
 :- pred float_vect(string::in, buffer::out) is det.
 :- pred int_vect(string::in, buffer::out) is det.
 :- pred string_vect(string::in, buffer::out) is det.
-
-    % Catch-all Mercury representation type
-
-:- type buffer.
 
     % is_<type>_buffer(Buffer)
     %
@@ -151,20 +153,12 @@
 :- implementation.
 
 :- import_module char.
+:- import_module exception.
 :- import_module float.
 :- import_module int.
 :- import_module list.
 :- import_module math.
 :- import_module string.
-
-:- type infinitives
-    --->    allow_infinitives
-    ;       allow_not_a_number
-    ;       do_not_allow_infinitives.
-    ;       do_not_allow_not_a_number.
-
-:- type behavior
-    --->    behavior(numeric :: infinitives). % to be augmented
 
     % Predicates for sourcing and evaluating R code.  Predicates
     % performing C I/O, semipure or impure (pending evaluation).
@@ -172,30 +166,6 @@
 :- pragma foreign_decl("C", "#include <RInside_C.h>").
 
 :- pragma foreign_decl("C", "#include <Rinternals.h>").
-
-:- pragma foreign_decl("C", "int start = 1;").
-
-:- impure pred start_r is det.
-
-:- pragma foreign_proc("C",
-    start_r,
-    [will_not_call_mercury],
-"
-    if (start) setupRinC();
-        start = 0;
-").
-
-:- pred stop_r is det.
-
-    % Call this predicate at the end of a session.
-    % For ill-understood reasons, this RInside function (01.21)
-    % does not reset setup status to zero, so start_r
-    % should not be called as would be expected
-
-:- pragma foreign_proc("C",
-    stop_r,
-    [promise_pure, will_not_call_mercury],
-    "teardownRinC();").
 
 %-----------------------------------------------------------------------------%
 % Sourcing R code
@@ -205,67 +175,51 @@
     source(X::in),
     [will_not_call_mercury],
 "
-    if (start) setupRinC();
-        start = 0;
-        evalQuietlyInR(X);
+setupRinC();
+evalQuietlyInR(X);
+teardownRinC();
 ").
 
 :- pragma foreign_proc("C",
     source_echo(X::in),
     [will_not_call_mercury],
 "
-    if (start) setupRinC();
-        start = 0;
-        Rf_PrintValue(evalInR(X));
+setupRinC();
+Rf_PrintValue(evalInR(X));
+teardownRinC();
 ").
 
 %-----------------------------------------------------------------------------%
 % Exception handling (bound check)
 %
 
-:- pred check_finite(string::in, (some [T] pred(string::in, T::out) is det),
-         behavior::in, buffer_item::out).
+:- pred check_finite(string, pred(string, buffer_item), behavior, buffer_item, io, io).
+:- mode check_finite(in, in, in, out, di, uo) is det.
 
-check_finite(Code, Predicate, Behavior, Result) :-
+check_finite(Code, Predicate, Behavior, Result, !IO) :-
     ( try [io(!IO)] (
-        Predicate(Code, Ret), % eval_int0(Code, Result)
+        Predicate(Code, Ret)
     )
     then
-        (if
-           is_inf(Ret)
+        ( if  Ret = float_base(F)
         then
-            (if
-                Behavior ^ numeric = allow_infinitives
-            then
-                write_string("Returned +Infinity.\n", !IO)
-            else if
-                Behavior ^ numeric = do_not_allow_infinitives
-            then
-                throw(domain_error("Returned +Infinity yet \
-                    +/- Infinity are not allowed."))
-            else
-                true
-            )
-        else if
-            is_nan(Ret)
-        then
-            (if
-                Behavior ^ numeric = allow_not_a_number
-            then
-                write_string("Returned NAN.\n", !IO)
-            else if
-                Behavior ^ numeric = do_not_allow_not_a_number
-            then
-                throw(domain_error("Returned NAN yet \
-                    NAN is not allowed."))
-            else
-                true
-            )
+            (
+                is_inf(F),
+                Behavior^numeric^inf = no
+            ;
+                is_nan(F),
+                Behavior^numeric^nan = no
+            ),
+            throw(domain_error("Returned +Infinity or NAN yet \
+                +/- Infinity or NAN are not allowed."))
+            %%
+            % Here possibly add in other cases
+            %
         else
-            true
+           Result = Ret
         )
     catch_any Excp ->
-            io.format(File, "Returned: EXCP (%s)\n", [s(string(Excp))], !IO)
+            io.format("Returned: EXCP (%s)\n", [s(string(Excp))], !IO)
     ).
 
 %-----------------------------------------------------------------------------%
@@ -273,32 +227,71 @@ check_finite(Code, Predicate, Behavior, Result) :-
 %
 
 :- instance r_eval(string) where [
-    pred(eval/2) is eval_string
+    pred(eval/4) is eval_string
 ].
 
 :- instance r_eval(int) where [
-    pred(eval/2) is eval_int
+    pred(eval/4) is eval_int
 ].
 
 :- instance r_eval(bool) where [
-    pred(eval/2) is eval_bool
+    pred(eval/4) is eval_bool
 ].
 
 :- instance r_eval(float) where [
-    pred(eval/2) is eval_float
+    pred(eval/4) is eval_float
 ].
 
-    % Predicates instanciating r_eval may be promised pure,
-    % but do not rely on them for invoking internal state
-    % variables across calls.
+     % r_eval instances use the standard numeric behavior
+     % currently only relevant for floats.
 
-:- pred eval_string(string::in, string::out) is det.
+:- pred eval_string(string::in, string::out, io::di, io::uo) is det.
 
-:- pragma foreign_proc("C", eval_string(X::in, Y::out),
+eval_string(Code, Result, !IO) :-
+    eval_string(Code, behavior(allow(yes, yes)), Ret, !IO),
+    Ret = string_base(Result).
+
+:- pred eval_int(string::in, int::out, io::di, io::uo) is det.
+
+eval_int(Code, Result, !IO) :-
+    eval_int(Code, behavior(allow(yes, yes)), Ret, !IO),
+    Ret = int_base(Result).
+
+:- pred eval_bool(string::in, bool::out, io::di, io::uo) is det.
+
+eval_bool(Code, Result, !IO) :-
+    eval_bool(Code, behavior(allow(yes, yes)), Ret, !IO),
+    Ret = bool_base(Result).
+
+:- pred eval_float(string::in, float::out, io::di, io::uo) is det.
+
+eval_float(Code, Result, !IO) :-
+    eval_float(Code, behavior(allow(yes, yes)), Ret, !IO),
+    Ret = float_base(Result).
+
+    % The encapsulating versions of eval_<type> with behavior and buffer_item
+    % arguments will be exported when finalized.
+
+:- pred eval_string(string::in, behavior::in,  buffer_item::out,
+    io::di, io::uo) is det.
+
+eval_string(Code, Behavior, Result, !IO) :-
+    check_finite(Code,
+        (pred(S::in, T::out) is det :-
+            eval_string0(S, U), T = string_base(U)), Behavior, Result, !IO).
+
+:- pred eval_string0(string::in, string::out) is det.
+
+% RInside evalInR returns a SEXP, possibly NULL, or crashes.
+% When NULL is returned, we substitute a NAN for floats or
+% a 0 value for integral types, a FALSE/no for booleans, or
+% an empty string/character for string/character types.
+
+
+:- pragma foreign_proc("C", eval_string0(X::in, Y::out),
     [promise_pure, will_not_call_mercury],
 "
-if (start) setupRinC();
-start = 0;
+setupRinC();
 int S = strlen(X);
 char buf[S + 100];
 memset(buf, 0, 100 + S);
@@ -307,15 +300,20 @@ sprintf(buf, ""%s%s%s"",
 if (inherits(z, 'try-error')) E <- 'R string error' else E <- z"");
 
 SEXP res = evalInR(buf);
-Y = (MR_String) CHAR(STRING_PTR(res)[0]);
+if (res == NULL)
+    Y = "";
+else
+    Y = (MR_String) CHAR(STRING_PTR(res)[0]);
+teardownRinC();
 ").
 
-:- pred eval_int(string::in, behavior::in,  buffer_item::out) is det.
+:- pred eval_int(string::in, behavior::in,  buffer_item::out,
+    io::di, io::uo) is det.
 
-eval_int(Code, Behavior, Result) :-
-    check_finite(Code, eval_int0(Code, Ret), int.min_int,
-        int.max_int, Behavior, Result),
-    Result = int(Ret).
+eval_int(Code, Behavior, Result, !IO) :-
+    check_finite(Code,
+        (pred(S::in, T::out) is det :-
+            eval_int0(S, U), T = int_base(U)), Behavior, Result, !IO).
 
 :- pred eval_int0(string::in, int::out) is det.
 
@@ -323,35 +321,61 @@ eval_int(Code, Behavior, Result) :-
     eval_int0(X::in, Z::out),
     [promise_pure, will_not_call_mercury],
 "
-if (start) setupRinC();
-start = 0;
-MR_Integer a = evalInRToInt(X);
+setupRinC();
+SEXP res = evalInR(X);
+if (res == NULL) {
+  Z = 0;
+  teardownRinC();
+  return;
+}
+
+MR_Integer a = (MR_Integer) floor(REAL(res)[0]);
 Z = (MR_Integer) a;
+teardownRinC();
 ").
 
-:- pred eval_float(string::in, float::out) is det.
+:- pred eval_float(string::in, behavior::in, buffer_item::out,
+    io::di, io::uo) is det.
+:- pred eval_float0(string::in, float::out) is det.
+
+eval_float(Code, Behavior, Result, !IO) :-
+    check_finite(Code,
+        (pred(S::in, T::out) is det :-
+            eval_float0(S, U), T = float_base(U)), Behavior, Result, !IO).
 
 :- pragma foreign_proc("C",
-    eval_float(X::in, Z::out),
+    eval_float0(X::in, Z::out),
     [promise_pure, will_not_call_mercury],
 "
-if (start) setupRinC();
-start = 0;
+// How to return NAN in C? There must be a Mercury-defined constant.
+// like MR_NAN etc.
 MR_Float a = REAL(evalInR(X))[0];
 Z = (MR_Float) a;
+teardownRinC();
 ").
 
-:- pred eval_bool(string::in, bool::out) is det.
+:- pred eval_bool(string::in, behavior::in, buffer_item::out,
+    io::di, io::uo) is det.
+:- pred eval_bool0(string::in, bool::out) is det.
+
+eval_bool(Code, Behavior, Result, !IO) :-
+    check_finite(Code,
+        (pred(S::in, T::out) is det :-
+            eval_bool0(S, U), T = bool_base(U)), Behavior, Result, !IO).
 
 :- pragma foreign_proc("C",
-    eval_bool(X::in, Z::out),
+    eval_bool0(X::in, Z::out),
     [promise_pure, will_not_call_mercury],
 "
-if (start) setupRinC();
-start = 0;
-MR_Bool a = evalInRToBool(X) ?
-MR_YES : MR_NO ;
-Z = (MR_Bool) a;
+SEXP res = evalInR(X);
+if (res == NULL) {
+  Z = MR_NO;
+  teardownRinC();
+  return;
+}
+bool a = LOGICAL(res)[0];
+Z = a ? MR_YES : MR_NO;
+teardownRinC();
 ").
 
 % ------------------------------------------------------------------------%
@@ -379,14 +403,15 @@ Z = (MR_Bool) a;
     % Encapsulating 'buffer' type for vectors.
 
 :- type buffer
-    --->     int(int_buffer)
-    ;        float(float_buffer)
-    ;        string(string_buffer).  % TODO: to be augmented.
+    --->    int(int_buffer)
+    ;       float(float_buffer)
+    ;       string(string_buffer).  % TODO: to be augmented.
 
     % Encapsulating 'buffer_item' for vector elements.
 
 :- type buffer_item
-    --->    float_base(float)
+    --->    bool_base(bool)
+    ;       float_base(float)
     ;       int_base(int)
     ;       string_base(string).    % TODO: to be augmented.
 
@@ -483,8 +508,7 @@ int_vect(Code, Buffer) :-
     c_int_vect(X::in, Buffer::out),
     [will_not_call_mercury, promise_pure],
 "
-if (start) setupRinC();
-start = 0;
+setupRinC();
 SEXP V = evalInR(X);
 if (! Rf_isVector(V)) {
     Buffer = NULL;   /* Cannot coerce */
@@ -524,6 +548,7 @@ for (int i = 0; i < S; ++i)
 Buffer->contents[i] = floor(V1[i]);
 
 /* UNPROTECT(1); */
+teardownRinC();
 ").
 
     % c_float_vect(R_Code, float_buffer).
@@ -545,8 +570,7 @@ float_vect(Code, Buffer) :-
     c_float_vect(X::in, Buffer::out),
     [will_not_call_mercury, promise_pure],
 "
-if (start) setupRinC();
-start = 0;
+setupRinC();
 SEXP V;
 V = evalInR(X);
 if (! Rf_isVector(V)) {
@@ -588,6 +612,7 @@ Buffer->contents = Items;
 * To be used if ported back */
 
 /* UNPROTECT(1); */
+teardownRinC();
 ").
 
     % c_string_vect(R_Code, string_buffer).
@@ -607,8 +632,7 @@ string_buffer(Buffer0, Buffer).
     c_string_vect(X::in, Buffer::out),
     [will_not_call_mercury, promise_pure],
 "
-if (start) setupRinC();
-start = 0;
+setupRinC();
 SEXP V = evalInR(X);
 if (V == NULL || ! Rf_isVector(V)) {
     Buffer = NULL;   /* Cannot coerce */
@@ -642,6 +666,7 @@ for (int i = 0; i < S; ++i) {
     Buffer->contents[i] = CHAR(ptr[i]);
 }
 /* UNPROTECT(1); */
+teardownRinC();
 ").
 
     %-------------------------------------------------------------------------%
@@ -802,12 +827,12 @@ else
     %
     % Index is zero-based.
 
-lookup(Index, Buffer, Item) :-
+lookup(Buffer, Index, Item) :-
     ( if
         is_int_buffer(Buffer)
     then
         ( if
-            lookup_int_vect(Index, int_buffer(Buffer), Value)
+            lookup_int_vect(int_buffer(Buffer), Index, Value)
         then
             Item = int_base(Value)
         else
@@ -817,7 +842,7 @@ lookup(Index, Buffer, Item) :-
         is_float_buffer(Buffer)
     then
         ( if
-            lookup_float_vect(Index, float_buffer(Buffer), Value)
+            lookup_float_vect(float_buffer(Buffer), Index, Value)
         then
             Item = float_base(Value)
         else
@@ -827,7 +852,7 @@ lookup(Index, Buffer, Item) :-
         is_string_buffer(Buffer)
     then
         ( if
-            lookup_string_vect(Index, string_buffer(Buffer), Value)
+            lookup_string_vect(string_buffer(Buffer), Index, Value)
         then
             Item = string_base(Value)
         else
@@ -862,7 +887,7 @@ marshall_vect_to_list(Start, End, Buffer, L) :-
                         list(buffer_item)::in, list(buffer_item)::out) is det.
 
 marshall_helper(Start, Index, Buffer, Size, L0, L1) :-
-    lookup(Index, Buffer, Value),
+    lookup(Buffer, Index, Value),
     L = [ Value | L0],
     ( if
         Index = Start
@@ -882,7 +907,7 @@ marshall_vect_to_list(Buffer) = List :-
     func to_list(U) = list(V)
 ].
 
-    % Currently to_list ins only instanciated for 'buffer' types
+    % Currently to_list is  only instantiated for 'buffer' types
     % This should change when moving on to dates, events etc.
 
 :- instance to_list(buffer, buffer_item) where [
@@ -951,16 +976,16 @@ main(!IO) :-
         fread(file = 'a.csv')
         "),
     impure source_echo("z[V1 == 2]"),
-    eval("y <- 12.0; z <- 11.5", X0),
-    eval_string("y <- ""abcd""", X1),
+    eval("y <- 12.0; z <- 11.5", X0, !IO),
+    eval_string("y <- ""abcd""", X1, !IO),
     impure source_echo("E"),
-    eval_int("z <- 9", X2),
-    eval_int("cat('eval z: ', z, '\\n'); z", X3),
+    eval_int("z <- 9", X2, !IO),
+    eval_int("cat('eval z: ', z, '\\n'); z", X3, !IO),
     impure source_echo("z"),
-    eval_bool("u <- TRUE", X4),
-    eval_float("y <- 2.0", X5),
-    eval_float("sin(1.0)", X7),
-    eval_int("8 + 50", X8),
+    eval_bool("u <- TRUE", X4, !IO),
+    eval_float("y <- 2.0", X5, !IO),
+    eval_float("sin(1.0)", X7, !IO),
+    eval_int("8 + 50", X8, !IO),
     io.write_float(X0,!IO), io.nl(!IO),
     io.write_string(X1, !IO), io.nl(!IO),
     io.write_int(X2,  !IO), io.nl(!IO),
@@ -1005,8 +1030,7 @@ main(!IO) :-
     lookup(X23, 0, X24),
     write_item(X24, !IO), io.nl(!IO),
     write_item(det_index0(to_list(X23), 0), !IO),
-    io.nl(!IO),
-    stop_r .
+    io.nl(!IO).
 
 %% %% Test Output
 
