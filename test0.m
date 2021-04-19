@@ -46,26 +46,28 @@
 :- type behavior
     --->    behavior(numeric :: allow). % to be augmented
 
-% source_echo(RCode).
-    % source(RCode) : tries to suppress output.
+    % source(R_code, !IO)
     %
-    % Impure predicates for sourcing R scripts.
-    % Should not be backtracked upon.
-    % No Mercury output, just R-managed IO.
+    % Sourcing R scripts. Not verbose except on errors.
+    %
+    % source_echo(R_code, !IO)
+    %
+    % Sourcing R scripts. Verbose.
+    % Both should not be backtrackable.
 
-:- impure pred source(string::in) is det.
-:- impure pred source_echo(string::in) is det.
+:- pred source(string::in, io::di, io::uo) is det.
+:- pred source_echo(string::in, io::di, io::uo) is det.
 
-    % eval(RCode, T), where T is a basic type.
+    % eval(R_code, T, !IO), where T is a basic type.
     %
     % Evaluation of R 'scalars' (1-dimensional vectors)
     % TODO: typeclass-constraints on T?
 
 :- typeclass r_eval(T) where [
-    pred eval(string::in, T::out, io::di, io::uo) is det
+    pred eval(string::in, T::out, io::di, io::uo) is cc_multi
 ].
 
-    % <type>_vect(RCode, Buffer)
+    % <type>_vect(R_code, Buffer)
     %
     % Predicates for marshalling R script return values
     % into Mercury code using the 'buffer' catch-all type.
@@ -146,7 +148,7 @@
 
 :- pred write_item(buffer_item::in, io::di, io::uo) is det.
 
-:- impure pred main(io::di, io::uo) is det.
+:- impure pred main(io::di, io::uo) is cc_multi.
 
 %-----------------------------------------------------------------------------%
 
@@ -158,68 +160,492 @@
 :- import_module int.
 :- import_module list.
 :- import_module math.
+:- import_module require.
 :- import_module string.
 
     % Predicates for sourcing and evaluating R code.  Predicates
     % performing C I/O, semipure or impure (pending evaluation).
 
-:- pragma foreign_decl("C", "#include <RInside_C.h>").
+    % Version R >= 2.4.0. This is untested, by 2.4 has been obsoleted
+    % for long now.
 
-:- pragma foreign_decl("C", "#include <Rinternals.h>").
+:- pragma foreign_decl("C", "
+
+#include <Rinternals.h>
+#include <Rembedded.h>
+#include <R_ext/Parse.h>
+#include <R_ext/RStartup.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+#define R_MR_CALL_ERROR     1
+#define R_MR_FILE_ERROR     2
+#define R_MR_SOURCE_YES     0
+#define R_MR_SOURCE_NO      4
+#define R_MR_SPRINTF_ERROR 10
+#define R_MR_NULL_STRING   11
+#define R_MR_NULL_ARGS    100
+#define R_MR_PARSE_ERROR  101
+
+
+/* R_MR_source(Path::in, Quit::in, Result::out) = Exitcode
+*
+*  Source file with path Path into an S expression pointer.
+*  If Quit = ""no"", shuts down R server without saving state.
+*  If Quit = ""yes"", shuts down R server and save state.
+#  if Quit = NULL, do not shut down R server.
+*  Returns the error code of R_tryEval (3rd arg).
+*  May fail. reference: Embedding/Rerror.c, Rpostscript.c */
+
+inline int R_MR_source(const char *filepath, const char* quit, SEXP e) {
+
+  errno = 0;
+  int error_occurred;
+
+  PROTECT(e = lang2(install(""source""), mkString(filepath)));
+  R_tryEval(e, R_GlobalEnv, &error_occurred);
+  UNPROTECT(1);
+
+  /* q() */
+  if (quit) {
+    PROTECT(e = lang2(install(""q""), mkString(quit)));
+    eval(e, R_GlobalEnv);
+    UNPROTECT(1);
+  }
+  errno = 0;
+  return error_occurred;
+}
+
+/* R_MR_source_string(Command::in, Status::out, Result::out) = Exitcode
+*
+*  Source R Command into an S expression pointer Result.
+*  Status flags the resulting parsing status of command string by R.
+*  May fail. Reference: R API, Examples/RParseEval.c
+**/
+
+inline int R_MR_source_string(const char *command, SEXP e,
+             ParseStatus *status) {
+  SEXP tmp;
+  int had_error;
+
+  /* It is safer to enclose R code in a block */
+  int newlength = length(command) + 2;
+  char code[newlength + 1];
+  ret = sprintf(code, ""{%s}"", command);
+  if (ret != newlength) return R_MR_SPRINTF_ERROR;
+
+  PROTECT(tmp = mkString(code));
+  if (tmp == NULL) return R_MR_NULL_STRING;
+  PROTECT(e = R_ParseVector(tmp, -1, status, R_NilValue));
+  if (status != PARSE_OK || TYPEOF(e) != EXPRSXP) {
+    UNPROTECT(2);
+	return R_MR_PARSE_ERROR;
+  }
+
+  R_tryEval(VECTOR_ELT(e,0), R_GlobalEnv, &had_error);
+  return had_error;
+}
+
+/* R_MR_eval_int(Function::in, NArgs::in, Arg::in, Status::out,
+*      Result::out) = Exitcode
+*
+*  Source R Function with integral vector Arg into an S expression Result.
+*  Status flags the resulting parsing status of command string by R.
+*  May fail. Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
+**/
+
+inline int R_MR_eval_int(const char *function, int argc, int argv[],
+               SEXP e, ParseStatus *status) {
+
+  if (argc == 0 || argv == NULL)
+      return R_MR_NULL_ARGS;
+
+  SEXP tmp, arg;
+  int had_error;
+
+  PROTECT(arg = allocVector(INTSXP, argc));
+  for (int i = 0; i < argc; ++i) INTEGER(arg)[i]  = argv[i];
+
+  PROTECT(e = lang2(install(function), arg));
+
+ /* Evaluate the call to the R function.  */
+
+  R_tryEval(e, R_GlobalEnv, &had_error);
+
+  return hadError;
+}
+
+/* The following functions are boilerplate-analogous to the above.
+*  These functions are a bit redundant with source-type ones, which are
+*  more general. Yet they should have a noticeably lower startup penalty
+*  and in some cases have more appropriate interfaces. */
+
+/* R_MR_eval_float(Function::in, NArgs::in, Arg::in, Status::out,
+*      Result::out) = Exitcode
+*
+*  Source R Function with numeric vector Arg into an S expression Result.
+*  Status flags the resulting parsing status of command string by R.
+*  'float' is used to conform to the corresponding Mercury type, which
+*  is actually a double in most cases.
+*  May fail. Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
+**/
+
+inline int R_MR_eval_float(const char *function, int argc, double argv[],
+               SEXP e, ParseStatus *status) {
+
+  if (argc == 0 || argv == NULL)
+      return R_MR_NULL_ARGS;
+
+  SEXP tmp, arg;
+
+  int had_error;
+  PROTECT(arg = allocVector(REALSXP, argc));
+  for (int i = 0; i < argc; ++i) REAL(arg)[i]  = argv[i];
+
+  PROTECT(e = lang2(install(function), arg));
+  R_tryEval(e, R_GlobalEnv, &had_error);
+
+  return hadError;
+}
+
+/* R_MR_eval_string(Function::in, NArgs::in, Arg::in, Status::out,
+*      Result::out) = Exitcode
+*
+*  Source R Function with string vector Arg into an S expression Result.
+*  Status flags the resulting parsing status of command string by R.
+*  May fail. Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
+**/
+
+inline int R_MR_eval_string(const char *function, int argc, char* argv[],
+               SEXP e, ParseStatus *status) {
+
+  if (argc == 0 || argv == NULL)
+      return R_MR_NULL_ARGS;
+
+  SEXP tmp, arg;
+
+  int had_error;
+  PROTECT(arg = allocVector(STRSXP, argc));
+  for (int i = 0; i < argc; ++i) REAL(arg)[i]  = argv[i];
+
+  PROTECT(e = lang2(install(function), arg));
+  R_tryEval(e, R_GlobalEnv, &had_error);
+
+  return hadError;
+}
+
+/* R_MR_eval_bool(Function::in, NArgs::in, Arg::in, Status::out,
+*      Result::out) = Exitcode
+*
+*  Source R Function with logical vector Arg into an S expression Result.
+*  Status flags the resulting parsing status of command string by R.
+*  May fail. Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
+**/
+
+inline int R_MR_eval_bool(const char *function, int argc, RBoolean argv[],
+               SEXP e, ParseStatus *status) {
+
+  if (argc == 0 || argv == NULL)
+      return R_MR_NULL_ARGS;
+
+  SEXP tmp, arg;
+
+  int had_error;
+  PROTECT(arg = allocVector(BOOLSXP, argc));
+  for (int i = 0; i < argc; ++i) LOGICAL(arg)[i]  = argv[i];
+
+  PROTECT(e = lang2(install(function), arg));
+  R_tryEval(e, R_GlobalEnv, &had_error);
+
+  return hadError;
+}
+
+/* R_MR_eval_vect(Function::in, NArgs::in, Args::in, Status::out,
+*      Result::out) = Exitcode
+*
+*  Source R Function with vector of vectors Args into an S expression Result.
+*  R vectors are of VECSXP and may represent any type like Mercury's array(T).
+*  They also represent tuples as each component may be of any type.
+*  Here we restrict the pattern to a collection of same-type vectors.
+*  They do not represent Lisp/Prolog/Mercury linked lists (which are LISTSXP).
+*  LISTSXP are only marginally used in R and will not be supported for now.
+*  Nargs is a zero-terminated array of vector dimensions.
+*  Status flags the resulting parsing status of command string by R.
+*  May fail. Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
+**/
+
+/* type int */
+
+inline int R_MR_eval_int_vec(const char *function, int argc[], int argv[][],
+               SEXP e, ParseStatus *status) {
+
+  if (argc == 0 || argv == NULL)
+      return R_MR_NULL_ARGS;
+
+  for (int l = 0; argc[l] != 0, ++l) {}
+
+  SEXP tmp, arg[l];
+
+  int had_error;
+  arg = allocVector(VECSXP, l);
+  for (int i = 0; i < l; ++i) {
+    arg[i] = allocVector(INTSXP, argc[i]);
+    for (int j = 0; j < argc[i]; ++j) INTSXP(arg[i])  = argv[i][j];
+  }
+
+  PROTECT(e = lang2(install(function), arg));
+  R_tryEval(e, R_GlobalEnv, &had_error);
+  UNPROTECT(1);
+  return hadError;
+}
+
+inline int R_MR_eval_float_vec(const char *function, int argc[], double argv[][],
+               SEXP e, ParseStatus *status) {
+
+  if (argc == 0 || argv == NULL)
+      return R_MR_NULL_ARGS;
+
+  for (int l = 0; argc[l] != 0, ++l) {}
+
+  SEXP tmp, arg[l];
+
+  int had_error;
+  arg = allocVector(VECSXP, l);
+  for (int i = 0; i < l; ++i) {
+    arg[i] = allocVector(REALSXP, argc[i]);
+    for (int j = 0; j < argc[i]; ++j) INTSXP(arg[i])  = argv[i][j];
+  }
+
+  PROTECT(e = lang2(install(function), arg));
+  R_tryEval(e, R_GlobalEnv, &had_error);
+  UNPROTECT(1);
+  return hadError;
+}
+
+inline int R_MR_eval_string_vec(const char *function, char* argc[], int argv[][],
+               SEXP e, ParseStatus *status) {
+
+  if (argc == 0 || argv == NULL)
+      return R_MR_NULL_ARGS;
+
+  for (int l = 0; argc[l] != 0, ++l) {}
+
+  SEXP tmp, arg[l];
+
+  int had_error;
+  arg = allocVector(VECSXP, l);
+  for (int i = 0; i < l; ++i) {
+    arg[i] = allocVector(STRSXP, argc[i]);
+    for (int j = 0; j < argc[i]; ++j) STRSXP(arg[i])  = argv[i][j];
+  }
+
+  PROTECT(e = lang2(install(function), arg));
+  R_tryEval(e, R_GlobalEnv, &had_error);
+  UNPROTECT(1);
+  return hadError;
+}
+
+/* End of boilerplate */
+
+/* R_MR_initialize(NArgs::in, Args::in) = Exitcode
+*
+*  Start R server with command line of NArgs elements and options Args.
+*  If Nargs = 0 or Args = NULL, use a reasonable default.
+*  Set up the R environment and start the R server. May fail.
+*  Returns errno as exit code.
+*/
+
+inline int R_MR_initialize(int argc, const char* argv[]) {
+
+  errno = 0;
+  if (argc == 0 || argv == NULL) {
+    int r_argc = 4, ret = 0;
+    char *r_argv[] = { ""R"", ""--no-save"", ""--gui=none"", ""--silent"" };
+
+    /* This function does not return anything of interest. */
+    Rf_initEmbeddedR(r_argc, r_argv);
+  } else {
+    Rf_initEmbeddedR(argc, argv);
+  }
+
+  ret = errno;
+  errno = 0;
+  return ret;
+}
+
+/* R_MR_end_R(Fatal) = Exitcode
+*
+*  Clean up R memory after completion of R session.
+*  Use Fatal !=0 for emergency bail out.
+*  May fail. Returns errno as exit code. */
+
+int R_MR_end_R(int fatal) {
+
+  errno = 0;
+  int ret = 0;
+
+  /* does not return */
+  Rf_endEmbeddedR(fatal);
+  UNPROTECT(2);
+  ret = errno;
+  errno = 0;
+  return ret;
+}
+"
+).
+
+
+
+%%     Rf_initEmbeddedR(sizeof(argv)/sizeof(argv[0]), argv);
+
+%%     for(i = 0; i < 100; i++) {
+%% 	    objs[i] = allocVector(VECSXP, 1000);
+%% 	    R_PreserveObject(objs[i]);
+%% 	    callLength(objs[i]);
+%%     }
+
+%%     R_embeddedShutdown(FALSE);
+%% }
+
+%% int
+%% callLength(SEXP obj)
+%% {
+%%     SEXP e, val;
+%%     int errorOccurred;
+%%     int len = -1;
+
+%%     PROTECT(e = lang2(install("length"), obj));
+%%     val = R_tryEval(e, R_GlobalEnv, &errorOccurred);
+%%     len = INTEGER(val)[0];
+%%     UNPROTECT(1);
+
+%%     return(len);
+%% }
+
+
+%% int
+%% R_embeddedShutdown(Rboolean ask)
+%% {
+
+%%     R_dot_Last();
+%%     R_RunExitFinalizers();
+%%     CleanEd();
+%%     KillAllDevices();
+%%     num_old_gens_to_collect = NUM_OLD_GENERATIONS;
+%%     R_gc();
+%%     return(1);
+%% }
+%% %%
+
+%% #include "embeddedRCall.h"
+
+%% static void doSplinesExample();
+%% extern int Rf_initEmbeddedR(int argc, char *argv[]);
+%% extern void Rf_endEmbeddedR(int fatal);
+
+%% int
+%% main(int argc, char *argv[])
+%% {
+%%     Rf_initEmbeddedR(argc, argv);
+%%     doSplinesExample();
+%%     Rf_endEmbeddedR(0);
+%%     return(0);
+%% }
+
+%% static void
+%% doSplinesExample()
+%% {
+%%     SEXP e;
+%%     int errorOccurred;
+
+%%     PROTECT(e = lang2(install("library"), mkString("splines")));
+%%     R_tryEval(e, R_GlobalEnv, NULL);
+%%     UNPROTECT(1);
+
+%%     PROTECT(e = lang2(install("options"), ScalarLogical(0)));
+%%     SET_TAG(CDR(e), install("example.ask"));
+%%     PrintValue(e);
+%%     R_tryEval(e, R_GlobalEnv, NULL);
+%%     UNPROTECT(1);
+
+%%     PROTECT(e = lang2(install("example"), mkString("ns")));
+%%     R_tryEval(e, R_GlobalEnv, &errorOccurred);
+%%     UNPROTECT(1);
+%% }
+%% %%
+
 
 %-----------------------------------------------------------------------------%
 % Sourcing R code
 %
+   % source(Rcode)
+   %
+   % Invokes the R command source script.
 
 :- pragma foreign_proc("C",
-    source(X::in),
-    [will_not_call_mercury],
+                       source(X::in, io::di, io::uo),
+                       [promise_pure, will_not_call_mercury],
 "
-setupRinC();
-evalQuietlyInR(X);
-teardownRinC();
 ").
 
 :- pragma foreign_proc("C",
     source_echo(X::in),
-    [will_not_call_mercury],
+    [promise_pure, will_not_call_mercury],
 "
-setupRinC();
-Rf_PrintValue(evalInR(X));
-teardownRinC();
+R_Mercury_initialise();
+Rf_PrintValue());
+R_Mercury_finalise();
 ").
 
 %-----------------------------------------------------------------------------%
 % Exception handling (bound check)
 %
 
+:- func to_float_base(buffer_item) = float.
+
+to_float_base(B) = F :- (B = float_base(X) -> F = X ; F = 0.0).
+
 :- pred check_finite(string, pred(string, buffer_item), behavior, buffer_item, io, io).
-:- mode check_finite(in, in, in, out, di, uo) is det.
+:- mode check_finite(in, pred(in, out) is det, in, out, di, uo) is cc_multi.
 
 check_finite(Code, Predicate, Behavior, Result, !IO) :-
     ( try [io(!IO)] (
         Predicate(Code, Ret)
     )
     then
-        ( if  Ret = float_base(F)
-        then
-            (
-                is_inf(F),
-                Behavior^numeric^inf = no
-            ;
-                is_nan(F),
-                Behavior^numeric^nan = no
-            ),
-            throw(domain_error("Returned +Infinity or NAN yet \
-                +/- Infinity or NAN are not allowed."))
+        F = to_float_base(Ret),
+            ( if
+                is_inf(F)
+            then
+                ( if  Behavior^numeric^inf = no
+                then
+                    unexpected($pred,
+                        "Returned Infinity yet Infinity is not allowed.")
+                else
+                    Result = Ret
+                )
+            else
+                ( if is_nan(F)
+                then
+                    ( if Behavior^numeric^nan = no
+                    then
+                        unexpected($pred,
+                            "Returned  NAN yet NAN is not allowed.")
+                    else
+                        Result = Ret
+                    )
+                else
+                    Result = Ret
+                )
+            )
             %%
             % Here possibly add in other cases
             %
-        else
-           Result = Ret
-        )
+
     catch_any Excp ->
-            io.format("Returned: EXCP (%s)\n", [s(string(Excp))], !IO)
+            io.format("Returned: EXCP (%s)\n", [s(string(Excp))], !IO),
+            Result = nil
     ).
 
 %-----------------------------------------------------------------------------%
@@ -245,35 +671,35 @@ check_finite(Code, Predicate, Behavior, Result, !IO) :-
      % r_eval instances use the standard numeric behavior
      % currently only relevant for floats.
 
-:- pred eval_string(string::in, string::out, io::di, io::uo) is det.
+:- pred eval_string(string::in, string::out, io::di, io::uo) is cc_multi.
 
 eval_string(Code, Result, !IO) :-
     eval_string(Code, behavior(allow(yes, yes)), Ret, !IO),
-    Ret = string_base(Result).
+    (Ret = string_base(X) -> Result = X ; Result = "").
 
-:- pred eval_int(string::in, int::out, io::di, io::uo) is det.
+:- pred eval_int(string::in, int::out, io::di, io::uo) is cc_multi.
 
 eval_int(Code, Result, !IO) :-
     eval_int(Code, behavior(allow(yes, yes)), Ret, !IO),
-    Ret = int_base(Result).
+    (Ret = int_base(X) -> Result = X ; Result = 0).
 
-:- pred eval_bool(string::in, bool::out, io::di, io::uo) is det.
+:- pred eval_bool(string::in, bool::out, io::di, io::uo) is cc_multi.
 
 eval_bool(Code, Result, !IO) :-
     eval_bool(Code, behavior(allow(yes, yes)), Ret, !IO),
-    Ret = bool_base(Result).
+    (Ret = bool_base(X) -> Result = X ; Result = no).
 
-:- pred eval_float(string::in, float::out, io::di, io::uo) is det.
+:- pred eval_float(string::in, float::out, io::di, io::uo) is cc_multi.
 
 eval_float(Code, Result, !IO) :-
     eval_float(Code, behavior(allow(yes, yes)), Ret, !IO),
-    Ret = float_base(Result).
+    (Ret = float_base(X) -> Result = X ; Result = 0.0).
 
     % The encapsulating versions of eval_<type> with behavior and buffer_item
     % arguments will be exported when finalized.
 
 :- pred eval_string(string::in, behavior::in,  buffer_item::out,
-    io::di, io::uo) is det.
+    io::di, io::uo) is cc_multi.
 
 eval_string(Code, Behavior, Result, !IO) :-
     check_finite(Code,
@@ -301,14 +727,14 @@ if (inherits(z, 'try-error')) E <- 'R string error' else E <- z"");
 
 SEXP res = evalInR(buf);
 if (res == NULL)
-    Y = "";
+    Y = """";
 else
     Y = (MR_String) CHAR(STRING_PTR(res)[0]);
 teardownRinC();
 ").
 
 :- pred eval_int(string::in, behavior::in,  buffer_item::out,
-    io::di, io::uo) is det.
+    io::di, io::uo) is cc_multi.
 
 eval_int(Code, Behavior, Result, !IO) :-
     check_finite(Code,
@@ -335,7 +761,7 @@ teardownRinC();
 ").
 
 :- pred eval_float(string::in, behavior::in, buffer_item::out,
-    io::di, io::uo) is det.
+    io::di, io::uo) is cc_multi.
 :- pred eval_float0(string::in, float::out) is det.
 
 eval_float(Code, Behavior, Result, !IO) :-
@@ -355,7 +781,7 @@ teardownRinC();
 ").
 
 :- pred eval_bool(string::in, behavior::in, buffer_item::out,
-    io::di, io::uo) is det.
+    io::di, io::uo) is cc_multi.
 :- pred eval_bool0(string::in, bool::out) is det.
 
 eval_bool(Code, Behavior, Result, !IO) :-
@@ -373,7 +799,7 @@ if (res == NULL) {
   teardownRinC();
   return;
 }
-bool a = LOGICAL(res)[0];
+int a = LOGICAL(res)[0];
 Z = a ? MR_YES : MR_NO;
 teardownRinC();
 ").
@@ -413,7 +839,8 @@ teardownRinC();
     --->    bool_base(bool)
     ;       float_base(float)
     ;       int_base(int)
-    ;       string_base(string).    % TODO: to be augmented.
+    ;       string_base(string)    % TODO: to be augmented.
+    ;       nil.
 
     % Foreign C code
     % Note that C-structures shoud not contain pointers
@@ -512,6 +939,7 @@ setupRinC();
 SEXP V = evalInR(X);
 if (! Rf_isVector(V)) {
     Buffer = NULL;   /* Cannot coerce */
+    teardownRinC();
     return;
 }
 
@@ -535,6 +963,7 @@ if (Rf_isLogical(V) || Rf_isInteger(V) || Rf_isString(V)) {
 if (! Rf_isReal(V)) {
     /* UNPROTECT(1); */
     Buffer = NULL;   /* Cannot coerce */
+    teardownRinC();
     return;
 }
 
@@ -575,11 +1004,12 @@ SEXP V;
 V = evalInR(X);
 if (! Rf_isVector(V)) {
     Buffer = NULL;   /* Cannot coerce */
+    teardownRinC();
     return;
 }
 
 if (Rf_isLogical(V) || Rf_isInteger(V) || Rf_isString(V)) {
-H    V = Rf_coerceVector(V, REALSXP);
+    V = Rf_coerceVector(V, REALSXP);
 
     /* PROTECT should be a non-op as the R runtime
     * is not fired, so the R GC is not either.
@@ -589,6 +1019,7 @@ H    V = Rf_coerceVector(V, REALSXP);
 
 } else if (! Rf_isReal(V)) {
     Buffer = NULL;   /* Cannot coerce */
+    teardownRinC();
     return;
 }
 
@@ -636,6 +1067,7 @@ setupRinC();
 SEXP V = evalInR(X);
 if (V == NULL || ! Rf_isVector(V)) {
     Buffer = NULL;   /* Cannot coerce */
+    teardownRinC();
     return;
 }
 
@@ -654,6 +1086,7 @@ if (! Rf_isString(V)) {
 
 if (V == NULL || ! Rf_isString(V)) {
     Buffer = NULL;   /* Cannot coerce */
+    teardownRinC();
     return;
 }
 
@@ -780,7 +1213,7 @@ lookup_buffer_vect_size(Buffer) = Value :-
     % C code implementation
 
 :- pragma foreign_proc("C",
-    lookup_int_vect(Index::in, Buffer::in, Value::out),
+    lookup_int_vect(Buffer::in, Index::in, Value::out),
     [will_not_call_mercury, promise_pure],
 "
 if (Buffer == NULL
@@ -794,7 +1227,7 @@ else
 ").
 
 :- pragma foreign_proc("C",
-    lookup_float_vect(Index::in, Buffer::in, Value::out),
+    lookup_float_vect(Buffer::in, Index::in, Value::out),
     [will_not_call_mercury, promise_pure],
 "
 if (Buffer == NULL
@@ -808,7 +1241,7 @@ else
 ").
 
 :- pragma foreign_proc("C",
-    lookup_string_vect(Index::in, Buffer::in, Value::out),
+    lookup_string_vect(Buffer::in, Index::in, Value::out),
     [will_not_call_mercury, promise_pure],
 "
 if (Buffer == NULL)

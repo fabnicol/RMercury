@@ -1,8 +1,8 @@
 # Default target for mmc --make.
 
 MAIN_TARGET = test0
-LDFLAGS = -L/usr/lib64/R/lib -L/usr/lib64/R/library/RInside/lib -L/usr/lib64/R/library/Rcpp/libs
-CFLAGS = -I/usr/lib64/R/library/RInside/include/  -I/usr/share/R/include/ -I /usr/lib64/R/include 
+LDFLAGS = -L/usr/lib64/R/lib -L/home/fab/R/x86_64-pc-linux-gnu-library/4.0/RInside/lib/ -L/home/fab/R/x86_64-pc-linux-gnu-library/4.0/Rcpp/libs
+CFLAGS = -I/home/fab/R/x86_64-pc-linux-gnu-library/4.0/RInside/include  -I/usr/share/R/include/ -I /usr/lib64/R/include 
 MGNUCFLAGS += -O3 -march=native -std=gnu99
          
 # Link with RInside
