@@ -1,13 +1,14 @@
 # Default target for mmc --make.
 
-MAIN_TARGET = test0
+MAIN_TARGET = libri
+MLFLAGS = -L/usr/lib64/R/lib
 LDFLAGS = -L/usr/lib64/R/lib 
-CFLAGS =  -I/usr/share/R/include/ -I /usr/lib64/R/include 
+CFLAGS = -I/usr/share/R/include/ -I /usr/lib64/R/include -I/home/fab/RMercury/.
 MGNUCFLAGS += -O3 -march=native -std=gnu99
          
 # Link with RInside
 
-MLLIBS +=  -lR -lpcre2-8 -llzma -lbz2 -lz -lrt -ldl -lm -licuuc -licui18n  -lstdc++ 
+MLLIBS +=  -lR -lRblas -lpcre2-8 -llzma -lbz2 -lz -lrt -ldl -lm -licuuc -licui18n  -lstdc++ 
 
 # Statically link to Mercury libraries.
 
