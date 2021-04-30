@@ -1,26 +1,23 @@
-# Default target for mmc --make.
+INSTALL_PREFIX=local
 
 MAIN_TARGET = libri
-MLFLAGS = -L/usr/lib64/R/lib
-LDFLAGS = -L/usr/lib64/R/lib 
-CFLAGS = -I/usr/share/R/include/ -I /usr/lib64/R/include -I/home/fab/RMercury/.
-MGNUCFLAGS += -O3 -march=native -std=gnu99
+
+R_LDFLAGS = "-L/usr/lib64/R/lib -lR"
+
+R_CFLAGS = "-I/usr/lib64/R/library/RInside/include/  -I/usr/share/R/include/ -I /usr/lib64/R/include  -O3 -march=native -std=gnu99"
          
-# Link with RInside
+MCFLAGS = \
+	--libgrades-exclude csharp					\
+	--libgrades-exclude java 					\
+	--libgrades-exclude spf						\
+	--install-prefix $(INSTALL_PREFIX)  		\
+	--cflags $(R_CFLAGS)					    \
+	--ld-flags $(R_LDFLAGS)                      
 
-MLLIBS +=  -lR -lRblas -lpcre2-8 -llzma -lbz2 -lz -lrt -ldl -lm -licuuc -licui18n  -lstdc++ 
+MCFLAGS-ri = --no-warn-nothing-exported \
+             --no-warn-interface-imports \
+             --mercury-linkage static \
+             --optimise-constructor-last-call  \
+             --no-ansi-c 
 
-# Statically link to Mercury libraries.
-
-MCFLAGS += --mercury-linkage static
-
-# General optimisation flags.
-
-MCFLAGS += --optimise-constructor-last-call
-
-# Don't specify to the C compiler that the ANSI dialect of C should be used.
-# --ansi-c practically does nothing after Mercury commit 61df175
-# so this only relaxes older Mercury compilers.
-
-MCFLAGS += --no-ansi-c -E # --target-debug
 
