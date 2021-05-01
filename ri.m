@@ -1072,7 +1072,7 @@ source_echo(Path, Result, Exitcode, !IO) :-
         io.set_exit_status(Error_start, !IO)
     ),
     source(Path, 0, no, Result, Exitcode, !IO),
-    end_R(no, no, Error_end, !IO),
+    end_R(no, yes, Error_end, !IO),
     io.set_exit_status(Error_end, !IO).
 
 source_echo(Path, Result, !IO) = Exitcode :-

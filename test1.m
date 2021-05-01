@@ -44,6 +44,8 @@ main(!IO) :-
     %end_R(no, no, Exitcode2, !IO),
     eval_int("a<-8", E, !IO),
     write_int(E, !IO),
+    eval_bool("a<-FALSE", E1, !IO),
+    write_bool(E1, !IO),
     io.nl(!IO).
 
 %% Build command line:
@@ -64,7 +66,15 @@ main(!IO) :-
 % This may have been caused by a stack overflow, due to unbounded recursion.
 % exiting from signal handler
 
+% Debugging process (in progress)
+% -------------------------------
 % Note:this is a first test (1st May 2021).
 
 % Second test: OK: correct start_R (do not allocate string on the stack)
 % and eval_int (double R init + cannot presume Rf_isType from FFI MR_Word.
+
+% Third test:
+% + tested: start_R, end_R, eval_<type> (alone).
+% Found oddly buggy: shutdown_R, unexpected unterminated " issue.
+% Issue also found with RInside (Rcpp): end_R does not reset initialization
+% of R server to zero: "R is already initialized". TODO: find a way to.
