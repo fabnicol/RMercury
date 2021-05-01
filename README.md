@@ -1,6 +1,13 @@
 ## An R interface for Mercury
 
-The module is labelled 'ri' for 'R Inteface'.
+The module is labelled 'ri' for 'R Interface'.
+
+### Status
+
++ Preliminary design and programming completed.  
++ Currently the library builds and linked programs build with it 
+(30 April 2021).  
++ Serious segfault issues to be solved at runtime.  
 
 ### Prerequisites
 
@@ -39,10 +46,11 @@ It should be built as follows:
 
     To build a Mercury project against these libraries:
 
-            $ mmc … --search-lib-files-dir <rootdir> \
-                    --init-file <rootdir>/ri.init \
-                    --link-object <rootdir>/libri.a \
-                  …
+            $ mmc … --search-lib-files-dir local/lib/mercury/lib/hlc.gc \
+                    --init-file local/lib/mercury/modules/hlc.gc/ri.init \
+                    --link-object local/lib/mercury/lib/hlc.gc/libri.a \
+                    --ld-flags "-lR -lRblas" \
+                                   …
 
 You need to make sure the library ‘libri.a’ and the main program were
 compiled in the same grade.
