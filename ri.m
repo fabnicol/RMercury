@@ -254,6 +254,8 @@
     %  start_R_semidet(Argv, Exitcode)
     %
     %  Semi-deterministic version of the above (can fail).
+    %  Note: As not attached to IO, should be used on startup
+    %  in non-commutative semantics or marked impure.
 
 :- pred start_R_semidet(array(string), int).
 
@@ -930,48 +932,11 @@ RESTORE_VERBOSITY;
 errno = 0;
 ").
 
-:- pragma foreign_proc("C",
-    start_R(Silent::in, Ret::out, IO0::di, IO::uo),
-    [promise_pure, will_not_call_mercury, tabled_for_io,
-     does_not_affect_liveness],
-"
-errno = 0;
+start_R(Silent, Exitcode, !IO) :-
+    start_R(array(["R", "--no-save", "--gui=none", "--silent"]), Silent, Exitcode, !IO).
 
-SET_SILENT(Silent);
-
-int r_argc = 4;
-const char *r_argv[] = { ""R"", ""--no-save"", ""--gui=none"", ""--silent"" };
-
-/* This function does not return anything of interest. */
-Rf_initEmbeddedR(r_argc, (char**) r_argv);
-
-RESTORE_VERBOSITY;
-
-Ret = errno;
-errno = 0;
-").
-
-:- pragma foreign_proc("C",
-    start_R_semidet(Ret::out),
-    [promise_pure, will_not_call_mercury, tabled_for_io,
-     does_not_affect_liveness],
-"
-errno = 0;
-SET_SILENT(TRUE);
-
-int r_argc = 4;
-const char *r_argv[] = { ""R"", ""--no-save"", ""--gui=none"", ""--silent"" };
-
-/* This function does not return anything of interest. */
-Rf_initEmbeddedR(r_argc, (char**) r_argv);
-
-Ret = errno;
-
-SUCCESS_INDICATOR = (errno == 0);
-
-RESTORE_VERBOSITY;
-errno = 0;
-").
+start_R_semidet(Exitcode) :-
+    start_R_semidet(array(["R", "--no-save", "--gui=none", "--silent"]), Exitcode).
 
 % Standard R server stop.
 
@@ -990,8 +955,7 @@ Ret = errno;
 
 RESTORE_VERBOSITY;
 errno = 0;
-"
-).
+").
 
 :- pragma foreign_proc("C",
     end_R_semidet(Fatal::in, Ret::out),
@@ -1008,8 +972,7 @@ Ret = errno;
 SUCCESS_INDICATOR = (errno == 0);
 RESTORE_VERBOSITY;
 errno = 0;
-"
-).
+").
 
 % R server stop when R_PreserveObjects is used
 
@@ -1280,12 +1243,6 @@ eval_bool(Code, Result, !IO) :-
 :- mode eval_F(in, func(in) = out is det, out, di, uo) is det.
 
 eval_F(Code, Func, Out, !IO) :-
-    start_R(yes, Exitcode, !IO),
-    ( if Exitcode = 0 then
-        true
-    else
-        io.set_exit_status(Exitcode, !IO)
-    ),
     source_string(Code, E, Errorcode, !IO),
     ( if Errorcode = 0 then
         true
@@ -1421,8 +1378,7 @@ SUCCESS_INDICATOR = (Rf_isLogical(Sexp));
     does_not_affect_liveness],
 "
 SUCCESS_INDICATOR = (Rf_isReal(Sexp));
-"
-).
+").
 
 :- pragma foreign_proc("C",
     is_int(Sexp::in),
@@ -1439,8 +1395,7 @@ SUCCESS_INDICATOR = (Rf_isInteger(Sexp));
     does_not_affect_liveness],
 "
 SUCCESS_INDICATOR = (Rf_isString(Sexp));
-"
-).
+").
 
 %---- 'Cast'from sexp to built-in type (bool, float, int, string) ------------%
 
@@ -1492,8 +1447,10 @@ else {
     [will_not_call_mercury, promise_pure, tabled_for_io,
      does_not_affect_liveness],
 "
-SUCCESS_INDICATOR = (Rf_isInteger(Sexp) && INTEGER(Sexp)[0] != NA_INTEGER);
+errno = 0;
 Value = Rf_asInteger(Sexp);
+SUCCESS_INDICATOR = (errno != 0 && Value != NA_INTEGER);
+errno = 0;
 ").
 
 :- pragma foreign_proc("C",
@@ -1501,11 +1458,12 @@ Value = Rf_asInteger(Sexp);
     [will_not_call_mercury, promise_pure, tabled_for_io,
      does_not_affect_liveness],
 "
-if (! Rf_isInteger(Sexp))
+errno = 0;
+Value = Rf_asInteger(Sexp);
+if (errno) {
     Value = 0;
-else {
-    Value = Rf_asInteger(Sexp);
 }
+errno = 0;
 ").
 
 :- pragma foreign_proc("C",

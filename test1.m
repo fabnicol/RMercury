@@ -38,12 +38,20 @@
 :- import_module array.
 
 main(!IO) :-
-    eval_int("a<-2", E, !IO),
+    %A = array(["R", "--no-save", "--gui=none", "--silent"]),
+    %start_R(no, Exitcode, !IO),
+    %write(Exitcode, !IO),
+    %end_R(no, no, Exitcode2, !IO),
+    eval_int("a<-8", E, !IO),
+    write_int(E, !IO),
     io.nl(!IO).
 
 %% Build command line:
 
-% rm test1; mmc --search-lib-files-dir $PWD/local/lib/mercury/lib/hlc.gc/ --init-file $PWD/local/lib/mercury/modules/hlc.gc/ri.init  --link-object $PWD/local/lib/mercury/lib/hlc.gc/libri.a --ld-flags "-lR -lRblas" --make test1
+% rm test1; mmc --search-lib-files-dir $PWD/local/lib/mercury/lib/hlc.gc/ \
+% --init-file $PWD/local/lib/mercury/modules/hlc.gc/ri.init \
+% --link-object $PWD/local/lib/mercury/lib/hlc.gc/libri.a \
+% --ld-flags "-lR -lRblas" --make test1
 
 %% Exec command line:
 % export R_HOME=/usr/lib64/R && LD_LIBRARY_PATH=/usr/lib64/R/lib ./test1
@@ -57,3 +65,6 @@ main(!IO) :-
 % exiting from signal handler
 
 % Note:this is a first test (1st May 2021).
+
+% Second test: OK: correct start_R (do not allocate string on the stack)
+% and eval_int (double R init + cannot presume Rf_isType from FFI MR_Word.
