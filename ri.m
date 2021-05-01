@@ -227,14 +227,29 @@
 :- pred lookup(buffer::in, int::in, buffer_item::out) is det.
 
     % Marshalling classes from R object representation to standard data types.
+
+
+    % write_bool(Bool, !IO)
     %
     % Printer of booleans in R-type format (TRUE/FALSE)
 
 :- pred write_bool(bool::in, io::di, io::uo) is det.
 
+    % Same as 'write_bool', followed by newline.
+
+:- pred writeln_bool(bool::in, io::di, io::uo) is det.
+
+    % write_item(Item, !IO)
+    %
     % Printer helper for encapsulating type 'buffer_item'.
 
 :- pred write_item(buffer_item::in, io::di, io::uo) is det.
+
+    % writeln_item(Item, !IO)
+    %
+    % Same as 'write_item', followed by newline.
+
+:- pred writeln_item(buffer_item::in, io::di, io::uo) is det.
 
 %-----------------------------------------------------------------------------%
 %
@@ -2700,6 +2715,8 @@ write_bool(Value, !IO) :-
         write_string("FALSE", !IO)
     ).
 
+writeln_bool(Value, !IO) :- write_bool(Value, !IO), io.nl(!IO).
+
     % Print helper for catch-all type 'buffer_item'
 
 write_item(Item, !IO) :-
@@ -2718,6 +2735,8 @@ write_item(Item, !IO) :-
     else
         io.nl(!IO)
     ).
+
+writeln_item(Item, !IO) :- write_item(Item, !IO), io.nl(!IO).
 
 % --------------------------------------------------------------------------- %
 :- end_module ri.
