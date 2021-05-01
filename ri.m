@@ -248,7 +248,6 @@
     %  Return errno as Exitcode.
 
 :- pred start_R(array(string), bool, int, io, io).
-
 :- mode start_R(array_di, in, out, di, uo) is det.
 
     %  start_R_semidet(Argv, Exitcode)
@@ -258,7 +257,6 @@
     %  in non-commutative semantics or marked impure.
 
 :- pred start_R_semidet(array(string), int).
-
 :- mode start_R_semidet(array_di, out) is semidet.
 
     %  start_R(Silent, Exitcode, !IO)
@@ -268,15 +266,20 @@
     %  Return errno as Exitcode.
 
 :- pred start_R(bool, int, io, io).
-
 :- mode start_R(in, out, di, uo) is det.
+
+   % This curtailed version is for 'initialise'.
+:- pred start_R(io, io).
+:- mode start_R(di, uo) is det.
+
+:- pred start_R_echo(io, io).
+:- mode start_R_echo(di, uo) is det.
 
     %  start_R_semidet(Exitcode)
     %
     %  Semi-deterministic version of the above (can fail).
 
 :- pred start_R_semidet(int).
-
 :- mode start_R_semidet(out) is semidet.
 
     %  end_R(Silent, Fatal, Exitcode, !IO)
@@ -287,6 +290,12 @@
     %  Return errno as exit code.
 
 :- pred end_R(bool::in, bool::in, int::out, io::di, io::uo) is det.
+
+    % end_R(!IO)
+    %
+    % Curtailed version for :- finalise.
+
+:- pred end_R(io::di, io::uo) is det.
 
     %  end_R_semidet(Silent, Fatal, Exitcode, !IO)
     %
@@ -938,6 +947,10 @@ start_R(Silent, Exitcode, !IO) :-
 start_R_semidet(Exitcode) :-
     start_R_semidet(array(["R", "--no-save", "--gui=none", "--silent"]), Exitcode).
 
+start_R(!IO) :- start_R(yes, _, !IO).
+
+start_R_echo(!IO) :- start_R(no, _, !IO).
+
 % Standard R server stop.
 
 :- pragma foreign_proc("C",
@@ -956,6 +969,8 @@ Ret = errno;
 RESTORE_VERBOSITY;
 errno = 0;
 ").
+
+end_R(!IO) :- end_R(yes, no, _, !IO).
 
 :- pragma foreign_proc("C",
     end_R_semidet(Fatal::in, Ret::out),
@@ -1046,15 +1061,15 @@ RESTORE_VERBOSITY;
 % 'Source' shorthand helpers.
 
 source(Path, Result, Exitcode, !IO) :-
-    start_R(yes, Error_start, !IO),
-    ( if Error_start = 0 then
-        true
-    else
-        io.set_exit_status(Error_start, !IO)
-    ),
-    source(Path, 0, yes, Result, Exitcode, !IO),
-    end_R(yes, no, Error_end, !IO),
-    io.set_exit_status(Error_end, !IO).
+    % start_R(yes, Error_start, !IO),
+    % ( if Error_start = 0 then
+    %     true
+    % else
+    %     io.set_exit_status(Error_start, !IO)
+    % ),
+    source(Path, 0, yes, Result, Exitcode, !IO).
+    %end_R(yes, no, Error_end, !IO),
+    %io.set_exit_status(Error_end, !IO).
 
 source(Path, Result, !IO) = Exitcode :-
     source(Path, Result, Exitcode, !IO).
@@ -1064,16 +1079,16 @@ source(Path, Result, !IO) :- source(Path, Result, _, !IO).
 source(Path, !IO) = Result :- source(Path, Result, _, !IO).
 
 source_echo(Path, Result, Exitcode, !IO) :-
-    start_R(no, Error_start, !IO),
-    ( if Error_start = 0
-    then
-        true
-    else
-        io.set_exit_status(Error_start, !IO)
-    ),
-    source(Path, 0, no, Result, Exitcode, !IO),
-    end_R(no, yes, Error_end, !IO),
-    io.set_exit_status(Error_end, !IO).
+    % start_R(no, Error_start, !IO),
+    % ( if Error_start = 0
+    % then
+    %     true
+    % else
+    %     io.set_exit_status(Error_start, !IO)
+    % ),
+    source(Path, 0, no, Result, Exitcode, !IO).
+   % end_R(no, yes, Error_end, !IO),
+   % io.set_exit_status(Error_end, !IO).
 
 source_echo(Path, Result, !IO) = Exitcode :-
     source(Path, Result, Exitcode, !IO).
@@ -1140,15 +1155,7 @@ RESTORE_VERBOSITY;
 ").
 
 source_string(Command, Result, Exitcode, !IO) :-
-    start_R(yes, Error_start, !IO),
-    ( if Error_start = 0 then
-        true
-    else
-        io.set_exit_status(Error_start, !IO)
-    ),
-    source_string(Command, 0, yes, Result, _, Exitcode, !IO),
-    end_R(yes, no, Error_end, !IO),
-    io.set_exit_status(Error_end, !IO).
+    source_string(Command, 0, yes, Result, _, Exitcode, !IO).
 
 source_string(Command, Result, !IO) = Exitcode :-
     source_string(Command, Result, Exitcode, !IO).
@@ -1160,16 +1167,7 @@ source_string(Command, !IO) = Result :-
     source_string(Command, Result, _, !IO).
 
 source_string_echo(Command, Result, Exitcode, !IO) :-
-    start_R(no, Error_start, !IO),
-    ( if Error_start = 0
-    then
-        true
-    else
-        io.set_exit_status(Error_start, !IO)
-    ),
-    source_string(Command, 0, no, Result, _, Exitcode, !IO),
-    end_R(no, no, Error_end, !IO),
-    io.set_exit_status(Error_end, !IO).
+    source_string(Command, 0, no, Result, _, Exitcode, !IO).
 
 source_string_echo(Command, Result, !IO) = Exitcode :-
     source_string(Command, Result, Exitcode, !IO).
@@ -1518,7 +1516,7 @@ else {
         if (Buffer->contents == NULL)
           SUCCESS_INDICATOR = FALSE;
         else {
-          // memcpy(Buffer->contents, V, S); ?
+          /* memcpy(Buffer->contents, V, S); ? */
           for (int i = 0; i < S; ++i)
             Buffer->contents[i] = (MR_Bool) V[i];
           SUCCESS_INDICATOR = TRUE;

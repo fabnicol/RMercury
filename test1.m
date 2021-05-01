@@ -38,15 +38,25 @@
 :- import_module array.
 
 main(!IO) :-
-    %A = array(["R", "--no-save", "--gui=none", "--silent"]),
-    %start_R(no, Exitcode, !IO),
-    %write(Exitcode, !IO),
-    %end_R(no, no, Exitcode2, !IO),
     eval_int("a<-8", E, !IO),
-    write_int(E, !IO),
+    write_int(E, !IO),nl(!IO),
     eval_bool("a<-FALSE", E1, !IO),
-    write_bool(E1, !IO),
+    write_bool(E1, !IO),nl(!IO),
+    eval_float("a<-0.2", E2, !IO),
+    write_float(E2, !IO),nl(!IO),
+    eval_string("a<-""abcs""", E3, !IO),
+    write_string(E3, !IO),
     io.nl(!IO).
+
+:- initialise start_R/2.
+
+:- finalise shutdown_R/2. % or end_R/2
+
+
+% A = array(["R", "--no-save", "--gui=none", "--silent"]),
+% start_R(no, Exitcode, !IO),
+% write(Exitcode, !IO),
+% end_R(no, no, Exitcode2, !IO),
 
 %% Build command line:
 
@@ -78,3 +88,7 @@ main(!IO) :-
 % Found oddly buggy: shutdown_R, unexpected unterminated " issue.
 % Issue also found with RInside (Rcpp): end_R does not reset initialization
 % of R server to zero: "R is already initialized". TODO: find a way to.
+
+% Test #4
+% Fixed eval_<type>. Fixed " issue. Add finalise/initialise decls with
+% start_R/2, end_R/2 or shutdown_R/2.
