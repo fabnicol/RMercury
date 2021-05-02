@@ -880,8 +880,8 @@ from_string_buffer(Value, Buffer) :- string(Value) = Buffer.
 
 :- pragma foreign_code("C",
 "
-Rboolean oldshow;
-static int num_old_gens_to_collect = 0;
+int  oldshow;
+int num_old_gens_to_collect = 0;
 int R_ShowErrorMessages = 1;
 ").
 
@@ -1348,9 +1348,7 @@ string_vect(Code, Buffer, !IO) :-
             to float buffer."),
         io.set_exit_status(Errorcode, !IO)
     ),
-    from_string_buffer(StringBuffer, Buffer),
-    end_R(yes, no, Exitcode, !IO),
-    io.set_exit_status(Exitcode, !IO).
+    from_string_buffer(StringBuffer, Buffer).
 
 %-----------------------------------------------------------------------------%
 %
@@ -1616,33 +1614,37 @@ else {
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-if (! Rf_isString(Sexp)) {
-    if (Rf_isLogical(Sexp) || Rf_isInteger(Sexp) || Rf_isReal(Sexp)) {
-        Sexp = Rf_coerceVector(Sexp, STRSXP);
+SEXP S = (SEXP) Sexp; /* From MR_Word to SEXP */
+    
+if (! Rf_isString(S)) {
+    puts(""not string"");
+    if (Rf_isLogical(S) || Rf_isInteger(S) || Rf_isReal(S)) {
+        S = Rf_coerceVector(S, STRSXP);
+	
     }
 }
+	
 Buffer = MR_GC_NEW(STRING_BUFFER);
-if (Buffer == NULL || ! Rf_isString(Sexp)) {
+if (Buffer == NULL || ! Rf_isString(S)) {
     SUCCESS_INDICATOR = FALSE;
 } else {
-    MR_Integer S = LENGTH(Sexp);
-    Buffer->size = S;
-    if (S == 0) {
+    MR_Integer size = LENGTH(S);
+    Buffer->size = size;
+    if (size == 0) {
         SUCCESS_INDICATOR = FALSE;
     } else {
-        Buffer->contents = MR_GC_malloc(sizeof(MR_String) * S);
+        Buffer->contents = MR_GC_malloc(sizeof(MR_String) * size);
         if (Buffer->contents == NULL)
             SUCCESS_INDICATOR = FALSE;
         else {
-            for (int j = 0; j < S; ++j) {
-                MR_String Sj = (MR_String) CHAR(STRING_ELT(Sexp, j));
+            for (int j = 0; j < size; ++j) {
+                MR_String Sj = (MR_String) CHAR(STRING_ELT(S, j));
                 MR_Integer Lj = strlen(Sj);
                 Buffer->contents[j] = MR_GC_malloc(Lj + 1);
                 if (Buffer->contents[j] == NULL)
                     SUCCESS_INDICATOR = FALSE;
                 else {
-                    memcpy(Buffer->contents[j], Sj, Lj);
-                    Buffer->contents[j + 1] = 0;
+                    memcpy(Buffer->contents[j], Sj, Lj + 1);
                 }
             }
             SUCCESS_INDICATOR = TRUE;

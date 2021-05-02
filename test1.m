@@ -47,7 +47,7 @@ main(!IO) :-
     eval_string("a<-""abcs""", E3, !IO),
     write_string(E3, !IO), nl(!IO),
     string_vect("c(""abcd"", ""efgh"")", E4,!IO),
-    lookup(E4, 1, S),
+    lookup(E4, 2, S),
     writeln_item(S, !IO),
     io.nl(!IO).
 

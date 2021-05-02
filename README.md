@@ -51,6 +51,9 @@ It should be built as follows:
                     --link-object local/lib/mercury/lib/hlc.gc/libri.a \
                     --ld-flags "-lR -lRblas" \
                                    …
-
-You need to make sure the library ‘libri.a’ and the main program were
-compiled in the same grade.
+Change 'hlc.gc' to the appropriate build grade (like possibly 'asm_fast.gc').
+You will need a GC grade (this is unchecked in the build process).
+You will have to erase '-lRblas' from the above if R has been built without
+libRblas.
+You need to make sure the library ‘libri.a’ and the main program were compiled
+in  the same grade.
