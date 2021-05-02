@@ -1282,9 +1282,8 @@ int_vect(Code, Buffer, !IO) :-
             to int buffer."),
         io.set_exit_status(Errorcode, !IO)
     ),
-    from_int_buffer(IntBuffer, Buffer),
-    end_R(yes, no, Exitcode, !IO),
-    io.set_exit_status(Exitcode, !IO).
+    from_int_buffer(IntBuffer, Buffer).
+
 
     % Source R code into buffer array-like structure.
 
@@ -1326,9 +1325,7 @@ float_vect(Code, Buffer, !IO) :-
             to float buffer."),
         io.set_exit_status(Errorcode, !IO)
     ),
-    from_float_buffer(FloatBuffer, Buffer),
-    end_R(yes, no, Exitcode, !IO),
-    io.set_exit_status(Exitcode, !IO).
+    from_float_buffer(FloatBuffer, Buffer).
 
     % Source R code into buffer array-like structure.
 
@@ -1546,25 +1543,31 @@ else {
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-if (Rf_isLogical(Sexp) || Rf_isInteger(Sexp) || Rf_isString(Sexp)) {
-    Sexp = Rf_coerceVector(Sexp, REALSXP);
+SEXP S = (SEXP) Sexp; /* From MR_Word to SEXP */        
+if (Rf_isLogical(S) || Rf_isInteger(S) || Rf_isString(S)) {
+    S = Rf_coerceVector(S, REALSXP);
 }
 
 Buffer = MR_GC_NEW(FLOAT_BUFFER);
-if (Buffer == NULL || ! Rf_isReal(Sexp))
+if (Buffer == NULL || ! Rf_isReal(S))
     SUCCESS_INDICATOR = FALSE;
 else {
-    MR_Integer S = LENGTH(Sexp);
-    Buffer->size = S;
-    if (S == 0) {
+    MR_Integer size = LENGTH(S);
+    Buffer->size = size;
+    if (size == 0) {
         SUCCESS_INDICATOR = FALSE;
     } else {
-        MR_Float *V1 = REAL(Sexp);
-        Buffer->contents = MR_GC_malloc(sizeof(MR_Float) * S);
+        MR_Float *V1 = REAL(S);
+        Buffer->contents = MR_GC_malloc(sizeof(MR_Float) * size);
         if (Buffer->contents == NULL)
             SUCCESS_INDICATOR = FALSE;
         else {
-            memcpy(Buffer->contents, V1, S);
+	 /* memcpy is possible as R 'numeric' vectors are of item
+	 *  size double, which is MR_Float.
+         *  Cautionary note: if definition of MR_Float should change,
+	 *  e.g. move to 'long double', code would be broken. */
+		
+            memcpy(Buffer->contents, V1, size * sizeof(MR_Float));
             SUCCESS_INDICATOR = TRUE;
         }
     }
@@ -1600,7 +1603,8 @@ else {
         if (Buffer->contents == NULL)
             SUCCESS_INDICATOR = FALSE;
         else {
-            /* memcpy(Buffer->contents, V1, size); TODO: check when possible */
+            /* memcpy(Buffer->contents, V,
+		size * sizeof(MR_Integer)); --> This is *not* possible */
             for (int i = 0; i < size; ++i)
                 Buffer->contents[i] = (MR_Integer) V[i];
 

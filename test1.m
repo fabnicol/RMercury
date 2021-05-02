@@ -52,6 +52,9 @@ main(!IO) :-
     int_vect("c(1234, 5678)", E5,!IO),
     lookup(E5, 0, S1),
     writeln_item(S1, !IO),
+    float_vect("c(1234.2, 5678.0)", E6,!IO),
+    lookup(E6, 0, S2),
+    writeln_item(S2, !IO),
     io.nl(!IO).
 
 :- initialise start_R/2.
