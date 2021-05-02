@@ -47,8 +47,11 @@ main(!IO) :-
     eval_string("a<-""abcs""", E3, !IO),
     write_string(E3, !IO), nl(!IO),
     string_vect("c(""abcd"", ""efgh"")", E4,!IO),
-    lookup(E4, 2, S),
+    lookup(E4, 0, S),
     writeln_item(S, !IO),
+    int_vect("c(1234, 5678)", E5,!IO),
+    lookup(E5, 0, S1),
+    writeln_item(S1, !IO),
     io.nl(!IO).
 
 :- initialise start_R/2.

@@ -1576,31 +1576,32 @@ else {
   [promise_pure, will_not_call_mercury, tabled_for_io,
    does_not_affect_liveness],
 "
+SEXP S = (SEXP) Sexp; /* From MR_Word to SEXP */    
 Buffer = MR_GC_NEW(INT_BUFFER);
-if (Rf_isLogical(Sexp) || Rf_isReal(Sexp) || Rf_isString(Sexp)) {
-    Sexp = Rf_coerceVector(Sexp, INTSXP);
+if (Rf_isLogical(S) || Rf_isReal(S) || Rf_isString(S)) {
+    S = Rf_coerceVector(S, INTSXP);
 }
 
-if (Buffer == NULL || ! Rf_isInteger(Sexp))
+if (Buffer == NULL || ! Rf_isInteger(S))
     SUCCESS_INDICATOR = FALSE;
 else {
-    MR_Integer S = LENGTH(Sexp);
-    Buffer->size = S;
-    if (S == 0) {
+    MR_Integer size = LENGTH(S);
+    Buffer->size = size;
+    if (size == 0) {
         SUCCESS_INDICATOR = FALSE;
     } else {
-        int *V = INTEGER(Sexp);
+        int *V = INTEGER(S);
         /* INTEGER creates an array of ints in R
            yet MR_INTEGER is void pointer size.
            On a 64-platform, this is 8 bytes,
            while int is 4 bytes. memcpy will not do. */
 
-        Buffer->contents = MR_GC_malloc(sizeof(MR_Integer) * S);
+        Buffer->contents = MR_GC_malloc(sizeof(MR_Integer) * size);
         if (Buffer->contents == NULL)
             SUCCESS_INDICATOR = FALSE;
         else {
-            //memcpy(Buffer->contents, V1, S);
-            for (int i = 0; i < S; ++i)
+            /* memcpy(Buffer->contents, V1, size); TODO: check when possible */
+            for (int i = 0; i < size; ++i)
                 Buffer->contents[i] = (MR_Integer) V[i];
 
             SUCCESS_INDICATOR = TRUE;
@@ -1617,7 +1618,6 @@ else {
 SEXP S = (SEXP) Sexp; /* From MR_Word to SEXP */
     
 if (! Rf_isString(S)) {
-    puts(""not string"");
     if (Rf_isLogical(S) || Rf_isInteger(S) || Rf_isReal(S)) {
         S = Rf_coerceVector(S, STRSXP);
 	
