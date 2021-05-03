@@ -1348,9 +1348,7 @@ string_vect(Code, Buffer, !IO) :-
             to float buffer."),
         io.set_exit_status(Errorcode, !IO)
     ),
-    from_string_buffer(StringBuffer, Buffer),
-    end_R(yes, no, Exitcode, !IO),
-    io.set_exit_status(Exitcode, !IO).
+    from_string_buffer(StringBuffer, Buffer).
 
 %-----------------------------------------------------------------------------%
 %
@@ -1382,8 +1380,7 @@ get_sexp_type(Sexp, TypeDesc) :-
      does_not_affect_liveness],
 "
 SUCCESS_INDICATOR = (Rf_isLogical(Sexp));
-"
-).
+").
 
 :- pragma foreign_proc("C",
     is_float(Sexp::in),
@@ -1399,8 +1396,7 @@ SUCCESS_INDICATOR = (Rf_isReal(Sexp));
     does_not_affect_liveness],
 "
 SUCCESS_INDICATOR = (Rf_isInteger(Sexp));
-"
-).
+").
 
 :- pragma foreign_proc("C",
     is_string(Sexp::in),
@@ -1777,8 +1773,7 @@ if (Sexp == NULL) {
     SUCCESS_INDICATOR = errno ? FALSE : TRUE;
     errno = 0;
 }
-"
-).
+").
 
 :- pragma foreign_proc("C",
     int_buffer_to_sexp(Value::in, Sexp::out),
@@ -1999,16 +1994,20 @@ else
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
+STRING_BUFFER *BufferPtr = (STRING_BUFFER*) Buffer; /* MR_Word -> STRING_BUFFER*) */
+MR_Integer size = BufferPtr->size;
+MR_String *contents = (MR_String*) Buffer->contents;
+
 if (Buffer == NULL)
     Value = (MR_String) ""NA_BUFFER"";
-else if (Buffer->contents == NULL)
+else if (contents == NULL)
     Value = (MR_String) ""NA_BUFFER_CONTENTS"";
-else if (Buffer->size <= 0)
+else if (size <= 0)
     Value = (MR_String) ""NA_BUFFER_SIZE"";
-else if (Index < 0 || Index > Buffer->size - 1)
+else if (Index < 0 || Index > size - 1)
     Value = (MR_String) ""NA_BUFFER_INDEX"";
 else
-    Value = (MR_String) Buffer->contents[Index];
+    Value = (MR_String) contents[Index];
 ").
 
     % Vector item lookup predicate for 'buffer'-type vectors
