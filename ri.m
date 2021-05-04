@@ -54,6 +54,14 @@
 %  - pointers to external APIs should be referenced as follows e.g.:
 %    Reference: R API, path/to/file.extension | path to Doxygen index.html.
 %
+% Predicates, functions and determinism.
+%
+% Unless this proves useless or inpratical, det predicates should be added
+% along with semidet predicates with appropriate and documented default values.
+% With the same caveats, both predicative and functional forms should be
+% provided in the interface. We prefer adding boilerplate to the libraray and
+% interface with normalized default to alternative options.
+% 
 %-----------------------------------------------------------------------------%
 
 :- module ri.
@@ -621,10 +629,20 @@
 
     % Sexp to built-in type.
 
+:- pred to_bool(sexp::in,   bool::out)  is semidet.  % fails if not bool.
+:- pred to_float(sexp::in,  float::out) is semidet.  % fails if not float.
+:- pred to_int(sexp::in,    int::out)    is semidet. % fails if not int.
+:- pred to_string(sexp::in, string::out) is semidet. % fails if not string.
+
 :- func to_bool(sexp)   = bool   is semidet. % fails if not bool.
 :- func to_float(sexp)  = float  is semidet. % fails if not float
 :- func to_int(sexp)    = int    is semidet. % fails if not int.
 :- func to_string(sexp) = string is semidet. % fails if not string.
+
+:- pred to_bool_det(sexp::in,   bool::out)   is det.  % FALSE if not bool.
+:- pred to_float_det(sexp::in,  float::out)  is det.  % 0.0 if not float
+:- pred to_int_det(sexp::in,    int::out)    is det.  % 0 if not int.
+:- pred to_string_det(sexp::in, string::out) is det.  %  "" if not string.
 
 :- func to_bool_det(sexp)   = bool.   % returns FALSE if not bool.
 :- func to_float_det(sexp)  = float.  % returns 0.0 if not float
@@ -633,14 +651,49 @@
 
     % Sexp to typed buffer.
 
+    % to_<type>_buffer(Sexp, Buffer)
+    % to_<type>_buffer(Sexp) = Buffer
+    %
+    % Associates Sexp to a typed Mercury buffer. Can fail in case of
+    % a buffer memory allocation issue or other error.
+
 :- pred to_bool_buffer(sexp::in,     bool_buffer::out)   is semidet.
 :- pred to_float_buffer(sexp::in,    float_buffer::out)  is semidet.
 :- pred to_int_buffer(sexp::in,      int_buffer::out)    is semidet.
 :- pred to_string_buffer(sexp::in,   string_buffer::out) is semidet.
 
+:- func to_bool_buffer(sexp)   = bool_buffer   is semidet.
+:- func to_float_buffer(sexp)  = float_buffer  is semidet.
+:- func to_int_buffer(sexp)    = int_buffer    is semidet.
+:- func to_string_buffer(sexp) = string_buffer is semidet.
+
+    % to_<type>_buffer_det(Sexp, Buffer)
+    % to_<type>_buffer_det(Sexp) = Buffer
+    %
+    % Associates Sexp to a typed Mercury buffer.
+    % In case of a buffer allocation failure or other error, Buffer contains:
+    % FALSE for type = bool.
+    % 0.0   for type = float.
+    % 0     for type = int.
+    % ""    for type = string.	
+
+:- pred to_bool_buffer_det(sexp::in,     bool_buffer::out)   is det.
+:- pred to_float_buffer_det(sexp::in,    float_buffer::out)  is det.
+:- pred to_int_buffer_det(sexp::in,      int_buffer::out)    is det.
+:- pred to_string_buffer_det(sexp::in,   string_buffer::out) is det.
+
+:- func to_bool_buffer_det(sexp)   = bool_buffer   is det.
+:- func to_float_buffer_det(sexp)  = float_buffer  is det.
+:- func to_int_buffer_det(sexp)    = int_buffer    is det.
+:- func to_string_buffer_det(sexp) = string_buffer is det.
+
     % Sexp to univ-like buffer type.
 
 :- pred to_buffer(sexp::in, buffer::out) is semidet.
+:- func to_buffer(sexp) = buffer         is semidet.
+
+:- pred to_buffer_det(sexp::in, buffer::out) is det.
+:- func to_buffer_det(sexp) = buffer         is det.
 
     % Built-in type to sexp.
 
@@ -649,6 +702,11 @@
 :- pred int_to_sexp(int::in,       sexp::out) is semidet.
 :- pred string_to_sexp(string::in, sexp::out) is semidet.
 
+:- pred bool_to_sexp_det(bool::in,     sexp::out) is det.
+:- pred float_to_sexp_det(float::in,   sexp::out) is det.
+:- pred int_to_sexp_det(int::in,       sexp::out) is det.
+:- pred string_to_sexp_det(string::in, sexp::out) is det.
+
     % Typed buffer to sexp.
 
 :- pred bool_buffer_to_sexp(bool_buffer::in,     sexp::out) is semidet.
@@ -656,14 +714,21 @@
 :- pred int_buffer_to_sexp(int_buffer::in,       sexp::out) is semidet.
 :- pred string_buffer_to_sexp(string_buffer::in, sexp::out) is semidet.
 
+:- pred bool_buffer_to_sexp_det(bool_buffer::in,     sexp::out) is det.
+:- pred float_buffer_to_sexp_det(float_buffer::in,   sexp::out) is det.
+:- pred int_buffer_to_sexp_det(int_buffer::in,       sexp::out) is det.
+:- pred string_buffer_to_sexp_det(string_buffer::in, sexp::out) is det.
+
 :- func nil_sexp = sexp.
 :- pred nil_sexp(sexp::out) is det.
 
     % Univ-like buffer to sexp.
 
 :- pred buffer_to_sexp(buffer::in, sexp::out) is semidet.
+:- func buffer_to_sexp(buffer) = sexp         is semidet.
 
-:- func buffer_to_sexp(buffer) = sexp is semidet.
+:- pred buffer_to_sexp_det(buffer::in, sexp::out) is det.
+:- func buffer_to_sexp_det(buffer) = sexp         is det.
 
 %-----------------------------------------------------------------------------%
 %
@@ -1649,6 +1714,8 @@ SUCCESS_INDICATOR = (Rf_isString(Sexp));
 
 %---- 'Cast'from sexp to built-in type (bool, float, int, string) ------------%
 
+to_bool(S, Value) :- to_bool(S) = Value.
+
 :- pragma foreign_proc("C",
     to_bool(Sexp::in) = (Value::out),
     [will_not_call_mercury, promise_pure, tabled_for_io,
@@ -1657,6 +1724,8 @@ SUCCESS_INDICATOR = (Rf_isString(Sexp));
 SUCCESS_INDICATOR = (Rf_isLogical(Sexp) && LOGICAL(Sexp)[0] != NA_LOGICAL);
 Value = Rf_asLogical(Sexp);
 ").
+
+to_bool_det(S, Value) :- to_bool_det(S) = Value.
 
 :- pragma foreign_proc("C",
     to_bool_det(Sexp::in) = (Value::out),
@@ -1670,6 +1739,8 @@ else {
 }
 ").
 
+to_float(S, Value) :- to_float(S) = Value.
+
 :- pragma foreign_proc("C",
     to_float(Sexp::in) = (Value::out),
     [will_not_call_mercury, promise_pure, tabled_for_io,
@@ -1678,6 +1749,11 @@ else {
 SUCCESS_INDICATOR = (Rf_isReal(Sexp) && R_finite(REAL(Sexp)[0]));
 Value = Rf_asReal(Sexp);
 ").
+
+
+:- pred to_bool_buffer_det(sexp::in,     bool_buffer::out)   is det.
+
+to_float_det(S, Value) :- to_float_det(S) = Value.
 
 :- pragma foreign_proc("C",
     to_float_det(Sexp::in) = (Value::out),
@@ -1691,6 +1767,7 @@ else {
 }
 ").
 
+to_int(S, Value) :- to_int(S) = Value.
 
 :- pragma foreign_proc("C",
     to_int(Sexp::in) = (Value::out),
@@ -1702,6 +1779,8 @@ Value = Rf_asInteger(Sexp);
 SUCCESS_INDICATOR = (errno != 0 && Value != NA_INTEGER);
 errno = 0;
 ").
+
+to_int_det(S, Value) :- to_int_det(S) = Value.
 
 :- pragma foreign_proc("C",
     to_int_det(Sexp::in) = (Value::out),
@@ -1716,6 +1795,8 @@ if (errno) {
 errno = 0;
 ").
 
+to_string(S, Value) :- to_string(S) = Value.
+
 :- pragma foreign_proc("C",
     to_string(Sexp::in) =  (Value::out),
     [will_not_call_mercury, promise_pure, tabled_for_io,
@@ -1727,6 +1808,8 @@ if (SUCCESS_INDICATOR == TRUE) {
   SUCCESS_INDICATOR = (Value != (MR_String) NA_STRING);
 }
 ").
+
+to_string_det(S, Value) :- to_string_det(S) = Value.
 
 :- pragma foreign_proc("C",
     to_string_det(Sexp::in) =  (Value::out),
@@ -1742,6 +1825,8 @@ else {
 
 %---- From sexp to <type>_buffer ---------------------------------------------%
 
+to_bool_buffer(Sexp) = Buffer :- to_bool_buffer(Sexp, Buffer).
+    
 :- pragma foreign_proc("C",
     to_bool_buffer(Sexp::in, Buffer::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
@@ -1781,6 +1866,8 @@ else {
 }
 ").
 
+to_float_buffer(Sexp) = Buffer :- to_float_buffer(Sexp, Buffer).
+
 :- pragma foreign_proc("C",
     to_float_buffer(Sexp::in, Buffer::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
@@ -1816,6 +1903,8 @@ else {
     }
 }
 ").
+
+to_int_buffer(Sexp) = Buffer :- to_int_buffer(Sexp, Buffer).
 
 :- pragma foreign_proc("C",
   to_int_buffer(Sexp::in, Buffer::out),
@@ -1856,6 +1945,8 @@ else {
     }
 }
 ").
+
+to_string_buffer(Sexp) = Buffer :- to_string_buffer(Sexp, Buffer).
 
 :- pragma foreign_proc("C",
     to_string_buffer(Sexp::in, Buffer::out),
@@ -1900,6 +1991,40 @@ if (Buffer == NULL || ! Rf_isString(S)) {
 }
 ").
 
+to_bool_buffer_det(Sexp, Buffer) :-
+    ( if to_bool_buffer(Sexp, X) then
+	Buffer = X
+    else
+	create_bool_buffer(no, Buffer)
+    ).
+
+to_float_buffer_det(Sexp, Buffer) :-
+    ( if to_float_buffer(Sexp, X) then
+	Buffer = X
+    else
+	create_float_buffer(0.0, Buffer)
+    ).
+
+to_int_buffer_det(Sexp, Buffer) :-
+    ( if to_int_buffer(Sexp, X) then
+	Buffer = X
+    else
+	create_int_buffer(0, Buffer)
+    ).
+
+to_string_buffer_det(Sexp, Buffer) :-
+    ( if to_string_buffer(Sexp, X) then
+	Buffer = X
+    else
+	create_string_buffer("", Buffer)
+    ).
+
+to_bool_buffer(Sexp, Buffer)   :- to_bool_buffer(Sexp)   = Buffer.
+to_float_buffer(Sexp, Buffer)  :- to_float_buffer(Sexp)  = Buffer.
+to_int_buffer(Sexp, Buffer)    :- to_int_buffer(Sexp)    = Buffer.
+to_string_buffer(Sexp, Buffer) :- to_string_buffer(Sexp) = Buffer.
+
+
 %---- 'Cast' from sexp to univ-like type 'buffer' ----------------------------%
 
 to_buffer(Sexp, Buffer) :-
@@ -1918,6 +2043,27 @@ to_buffer(Sexp, Buffer) :-
     else
         fail
     ).
+
+to_buffer(Sexp) = Buffer :- to_buffer(Sexp, Buffer).
+
+to_buffer_det(Sexp, Buffer) :-
+    ( if is_bool(Sexp) then
+        to_bool_buffer_det(Sexp, BoolBuffer),
+        from_bool_buffer(BoolBuffer, Buffer)
+    else if is_float(Sexp) then
+        to_float_buffer_det(Sexp, FloatBuffer),
+        from_float_buffer(FloatBuffer, Buffer)
+    else if is_int(Sexp) then
+        to_int_buffer_det(Sexp, IntBuffer),
+        from_int_buffer(IntBuffer, Buffer)
+    else if is_string(Sexp) then
+        to_string_buffer_det(Sexp, StringBuffer),
+        from_string_buffer(StringBuffer, Buffer)
+    else
+        fail
+    ).
+
+to_buffer_det(Sexp) = Buffer :- to_buffer_det(Sexp, Buffer).
 
 %---- 'Cast' from built-in type (bool, float, int, string) to sexp -----------%
 
