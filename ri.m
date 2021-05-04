@@ -54,6 +54,14 @@
 %  - pointers to external APIs should be referenced as follows e.g.:
 %    Reference: R API, path/to/file.extension | path to Doxygen index.html.
 %
+% Predicates, functions and determinism.
+%
+% Unless this proves useless or inpratical, det predicates should be added
+% along with semidet predicates with appropriate and documented default values.
+% With the same caveats, both predicative and functional forms should be
+% provided in the interface. We prefer adding boilerplate to the libraray and
+% interface with normalized default to alternative options.
+% 
 %-----------------------------------------------------------------------------%
 
 :- module ri.
@@ -159,15 +167,75 @@
 
 :- pragma foreign_type("C", sexp, "SEXP").
 
+%-----------------------------------------------------------------------------%
+%
+% Typed buffer creation
+%
+
+    % create_<type>_buffer(Value, Buffer)
+    %
+    % Create <type>_buffer containing only one element of type <type>
+    % and value Value. Buffer is nil in case of an allocation issue.
+    % 
+    % create_<type>_buffer_det(Value, Buffer)
+    %
+    % Det version of the above, with default values in the (rare) event
+    % of a buffer memory allocation error. Defaults are: no (bool), 0.0 (float)
+    % 0 (int), "" (string).
+ 
+
+:- pred create_bool_buffer(bool::in,     bool_buffer::out)   is semidet.
+:- pred create_bool_buffer_det(bool::in, bool_buffer::out)   is det.
+
+:- pred create_float_buffer(float::in,   float_buffer::out)  is semidet.
+:- pred create_float_buffer_det(float::in,   float_buffer::out)  is det.
+
+:- pred create_int_buffer(int::in,   int_buffer::out)  is semidet.
+:- pred create_int_buffer_det(int::in,   int_buffer::out)  is det.
+
+:- pred create_string_buffer(string::in,   string_buffer::out)  is semidet.
+:- pred create_string_buffer_det(string::in,   string_buffer::out)  is det.
+
+
+    % create_<type>_buffer(Size, List, Buffer)
+    % 
+    % Create <type>_buffer containing Size elements of type <type> out of List.
+    % Buffer is nil in case of an allocation issue.
+    %
+    % Det version of the above, with default values in the (rare) event
+    % of a buffer memory allocation error. Defaults are: no (bool), 0.0 (float)
+    % 0 (int), "" (string).
+
+
+:- pred create_bool_buffer(int::in, list(bool)::in,
+    bool_buffer::out)   is semidet.
+:- pred create_bool_buffer_det(int::in, list(bool)::in,
+    bool_buffer::out)   is det.
+
+:- pred create_float_buffer(int::in, list(float)::in,
+    float_buffer::out)   is semidet.
+:- pred create_float_buffer_det(int::in, list(float)::in,
+    float_buffer::out)   is det.
+
+:- pred create_int_buffer(int::in, list(int)::in,
+    int_buffer::out)   is semidet.
+:- pred create_int_buffer_det(int::in, list(int)::in,
+    int_buffer::out)   is det.
+
+:- pred create_string_buffer(int::in, list(string)::in,
+    string_buffer::out)   is semidet.
+:- pred create_string_buffer_det(int::in, list(string)::in,
+    string_buffer::out)   is det.
+
     % is_<type>_buffer(Buffer)
     %
     % Helper predicates: boolean type identification of Buffer.
     % Reads: Buffer is of underlying type <type>.
     %
 
-:- pred is_bool_buffer(buffer::in) is semidet.
-:- pred is_int_buffer(buffer::in) is semidet.
-:- pred is_float_buffer(buffer::in) is semidet.
+:- pred is_bool_buffer(buffer::in)   is semidet.
+:- pred is_int_buffer(buffer::in)    is semidet.
+:- pred is_float_buffer(buffer::in)  is semidet.
 :- pred is_string_buffer(buffer::in) is semidet.
 
     % <type>_buffer(Buffer) = Type_buffer
@@ -176,10 +244,22 @@
     % If Buffer has underlying type <type>, output <type>_buffer,
     % with same size data characteristics, otherwise fail.
 
-:- func bool_buffer(buffer) = bool_buffer is semidet.
-:- func int_buffer(buffer) = int_buffer is semidet.
-:- func float_buffer(buffer) = float_buffer is semidet.
+:- func bool_buffer(buffer)   = bool_buffer   is semidet.
+:- func int_buffer(buffer)    = int_buffer    is semidet.
+:- func float_buffer(buffer)  = float_buffer  is semidet.
 :- func string_buffer(buffer) = string_buffer is semidet.
+
+    % <type>_buffer_det(Buffer) = Type_buffer
+    %
+    % Pseudo-cast of Buffer to its underlying type.
+    % If Buffer has underlying type <type>, output <type>_buffer,
+    % with same size data characteristics, otherwise output a
+    % default value (no for bool, 0 for int, 0.0 for float, "" for string).
+
+:- func bool_buffer_det(buffer)   = bool_buffer   is det.
+:- func int_buffer_det(buffer)    = int_buffer    is det.
+:- func float_buffer_det(buffer)  = float_buffer  is det.
+:- func string_buffer_det(buffer) = string_buffer is det.
 
     % <type>_buffer(Type_buffer, Buffer)
     %
@@ -187,9 +267,9 @@
     % Construct and output univ-type Buffer associated with Type_buffer.
     % Reverse of the above.
 
-:- pred from_bool_buffer(bool_buffer::in, buffer::out) is det.
-:- pred from_int_buffer(int_buffer::in, buffer::out) is det.
-:- pred from_float_buffer(float_buffer::in, buffer::out) is det.
+:- pred from_bool_buffer(bool_buffer::in,     buffer::out) is det.
+:- pred from_int_buffer(int_buffer::in,       buffer::out) is det.
+:- pred from_float_buffer(float_buffer::in,   buffer::out) is det.
 :- pred from_string_buffer(string_buffer::in, buffer::out) is det.
 
     % Object length accessor typeclass.
@@ -214,9 +294,9 @@
     % Warning: Currently empty R vectors are causing an error when accessed
     % in Mercury. This behavior should be changed.
 
-:- pred lookup_bool_vect(bool_buffer::in, int::in, bool::out) is det.
-:- pred lookup_float_vect(float_buffer::in, int::in, float::out) is det.
-:- pred lookup_int_vect(int_buffer::in, int::in, int::out) is det.
+:- pred lookup_bool_vect(bool_buffer::in, int::in,     bool::out)   is det.
+:- pred lookup_float_vect(float_buffer::in, int::in,   float::out)  is det.
+:- pred lookup_int_vect(int_buffer::in, int::in,       int::out)    is det.
 :- pred lookup_string_vect(string_buffer::in, int::in, string::out) is det.
 
     % lookup(Buffer, Index, Buffer_Item)
@@ -233,13 +313,13 @@
     %
     % Printer of booleans in R-type format (TRUE/FALSE)
 
-:- pred write_bool(bool::in, io::di, io::uo) is det.
+:- pred write_rbool(bool::in, io::di, io::uo) is det.
 
-    % Same as 'write_bool', followed by newline.
+    % Same as 'write_rbool', followed by newline.
 
-:- pred writeln_bool(bool::in, io::di, io::uo) is det.
+:- pred writeln_rbool(bool::in, io::di, io::uo) is det.
 
-    % write_item(Item, !IO)
+    % write_ritem(Item, !IO)
     %
     % Printer helper for encapsulating type 'buffer_item'.
 
@@ -475,8 +555,8 @@
     % type behavior(allow(inf, nan)).
     %
 
-:- pred eval_bool(string::in, bool::out, io::di, io::uo)   is det.
-:- pred eval_float(string::in, float::out, io::di, io::uo) is cc_multi.
+:- pred eval_bool(string::in, bool::out, io::di,   io::uo)   is det.
+:- pred eval_float(string::in, float::out, io::di, io::uo)   is cc_multi.
 :- pred eval_float(string::in, behavior::in, buffer_item::out,
     io::di, io::uo) is cc_multi.
 
@@ -498,9 +578,9 @@
     % typed. Using explicit type coercion prefixed to the
     % names of the vector-catch predicates:
 
-:- pred bool_vect(string::in, buffer::out, io::di, io::uo) is det.
-:- pred float_vect(string::in, buffer::out, io::di, io::uo) is det.
-:- pred int_vect(string::in, buffer::out, io::di, io::uo) is det.
+:- pred bool_vect(string::in, buffer::out, io::di,   io::uo) is det.
+:- pred float_vect(string::in, buffer::out, io::di,  io::uo) is det.
+:- pred int_vect(string::in, buffer::out, io::di,    io::uo) is det.
 :- pred string_vect(string::in, buffer::out, io::di, io::uo) is det.
 
 %-------------------------------------------------------------------------%
@@ -549,10 +629,20 @@
 
     % Sexp to built-in type.
 
+:- pred to_bool(sexp::in,   bool::out)  is semidet.  % fails if not bool.
+:- pred to_float(sexp::in,  float::out) is semidet.  % fails if not float.
+:- pred to_int(sexp::in,    int::out)    is semidet. % fails if not int.
+:- pred to_string(sexp::in, string::out) is semidet. % fails if not string.
+
 :- func to_bool(sexp)   = bool   is semidet. % fails if not bool.
 :- func to_float(sexp)  = float  is semidet. % fails if not float
 :- func to_int(sexp)    = int    is semidet. % fails if not int.
 :- func to_string(sexp) = string is semidet. % fails if not string.
+
+:- pred to_bool_det(sexp::in,   bool::out)   is det.  % FALSE if not bool.
+:- pred to_float_det(sexp::in,  float::out)  is det.  % 0.0 if not float
+:- pred to_int_det(sexp::in,    int::out)    is det.  % 0 if not int.
+:- pred to_string_det(sexp::in, string::out) is det.  %  "" if not string.
 
 :- func to_bool_det(sexp)   = bool.   % returns FALSE if not bool.
 :- func to_float_det(sexp)  = float.  % returns 0.0 if not float
@@ -561,14 +651,49 @@
 
     % Sexp to typed buffer.
 
+    % to_<type>_buffer(Sexp, Buffer)
+    % to_<type>_buffer(Sexp) = Buffer
+    %
+    % Associates Sexp to a typed Mercury buffer. Can fail in case of
+    % a buffer memory allocation issue or other error.
+
 :- pred to_bool_buffer(sexp::in,     bool_buffer::out)   is semidet.
 :- pred to_float_buffer(sexp::in,    float_buffer::out)  is semidet.
 :- pred to_int_buffer(sexp::in,      int_buffer::out)    is semidet.
 :- pred to_string_buffer(sexp::in,   string_buffer::out) is semidet.
 
+:- func to_bool_buffer(sexp)   = bool_buffer   is semidet.
+:- func to_float_buffer(sexp)  = float_buffer  is semidet.
+:- func to_int_buffer(sexp)    = int_buffer    is semidet.
+:- func to_string_buffer(sexp) = string_buffer is semidet.
+
+    % to_<type>_buffer_det(Sexp, Buffer)
+    % to_<type>_buffer_det(Sexp) = Buffer
+    %
+    % Associates Sexp to a typed Mercury buffer.
+    % In case of a buffer allocation failure or other error, Buffer contains:
+    % FALSE for type = bool.
+    % 0.0   for type = float.
+    % 0     for type = int.
+    % ""    for type = string.	
+
+:- pred to_bool_buffer_det(sexp::in,     bool_buffer::out)   is det.
+:- pred to_float_buffer_det(sexp::in,    float_buffer::out)  is det.
+:- pred to_int_buffer_det(sexp::in,      int_buffer::out)    is det.
+:- pred to_string_buffer_det(sexp::in,   string_buffer::out) is det.
+
+:- func to_bool_buffer_det(sexp)   = bool_buffer   is det.
+:- func to_float_buffer_det(sexp)  = float_buffer  is det.
+:- func to_int_buffer_det(sexp)    = int_buffer    is det.
+:- func to_string_buffer_det(sexp) = string_buffer is det.
+
     % Sexp to univ-like buffer type.
 
 :- pred to_buffer(sexp::in, buffer::out) is semidet.
+:- func to_buffer(sexp) = buffer         is semidet.
+
+:- pred to_buffer_det(sexp::in, buffer::out) is det.
+:- func to_buffer_det(sexp) = buffer         is det.
 
     % Built-in type to sexp.
 
@@ -577,6 +702,11 @@
 :- pred int_to_sexp(int::in,       sexp::out) is semidet.
 :- pred string_to_sexp(string::in, sexp::out) is semidet.
 
+:- pred bool_to_sexp_det(bool::in,     sexp::out) is det.
+:- pred float_to_sexp_det(float::in,   sexp::out) is det.
+:- pred int_to_sexp_det(int::in,       sexp::out) is det.
+:- pred string_to_sexp_det(string::in, sexp::out) is det.
+
     % Typed buffer to sexp.
 
 :- pred bool_buffer_to_sexp(bool_buffer::in,     sexp::out) is semidet.
@@ -584,14 +714,21 @@
 :- pred int_buffer_to_sexp(int_buffer::in,       sexp::out) is semidet.
 :- pred string_buffer_to_sexp(string_buffer::in, sexp::out) is semidet.
 
+:- pred bool_buffer_to_sexp_det(bool_buffer::in,     sexp::out) is det.
+:- pred float_buffer_to_sexp_det(float_buffer::in,   sexp::out) is det.
+:- pred int_buffer_to_sexp_det(int_buffer::in,       sexp::out) is det.
+:- pred string_buffer_to_sexp_det(string_buffer::in, sexp::out) is det.
+
 :- func nil_sexp = sexp.
 :- pred nil_sexp(sexp::out) is det.
 
     % Univ-like buffer to sexp.
 
 :- pred buffer_to_sexp(buffer::in, sexp::out) is semidet.
+:- func buffer_to_sexp(buffer) = sexp         is semidet.
 
-:- func buffer_to_sexp(buffer) = sexp is semidet.
+:- pred buffer_to_sexp_det(buffer::in, sexp::out) is det.
+:- func buffer_to_sexp_det(buffer) = sexp         is det.
 
 %-----------------------------------------------------------------------------%
 %
@@ -837,19 +974,161 @@ else  \
     % with respective types bool_buffer, int_buffer, float_buffer and
     % string_buffer.
 
-:- pragma foreign_type("C", bool_buffer, "BOOL_BUFFER *",
+:- pragma foreign_type("C", bool_buffer,   "BOOL_BUFFER *",
     [can_pass_as_mercury_type]).
 
-:- pragma foreign_type("C", int_buffer, "INT_BUFFER *",
+:- pragma foreign_type("C", int_buffer,    "INT_BUFFER *",
     [can_pass_as_mercury_type]).
 
-:- pragma foreign_type("C", float_buffer, "FLOAT_BUFFER *",
+:- pragma foreign_type("C", float_buffer,  "FLOAT_BUFFER *",
     [can_pass_as_mercury_type]).
 
 :- pragma foreign_type("C", string_buffer, "STRING_BUFFER *",
     [can_pass_as_mercury_type]).
 
-    % boolean helper predicates to test 'buffer' underlying sub-type
+    % Create <type>_buffer with one element or a list of elements.
+
+create_bool_buffer(Value,   Buffer) :-
+    create_bool_buffer(1,   [Value], Buffer).
+create_bool_buffer_det(Value,  Buffer) :-
+    create_bool_buffer_det(1,  [Value], Buffer).
+
+create_float_buffer(Value,  Buffer) :-
+    create_float_buffer(1,  [Value], Buffer).
+create_float_buffer_det(Value,  Buffer) :-
+    create_float_buffer_det(1,  [Value], Buffer).
+
+create_int_buffer(Value,    Buffer) :-
+    create_int_buffer(1,    [Value], Buffer).
+create_int_buffer_det(Value, Buffer) :-
+    create_int_buffer_det(1, [Value], Buffer).
+
+create_string_buffer(Value,    Buffer) :-
+    create_string_buffer(1,    [Value], Buffer).
+create_string_buffer_det(Value, Buffer) :-
+    create_string_buffer_det(1, [Value], Buffer).
+
+    % Note: in case of an allocation failure,
+    % <type>_buffer is nil <--> <TYPE>_BUFFER* is NULL
+    % So nil should be allowed as a legitimate <type>_buffer value.
+
+:- pragma foreign_proc("C",
+    create_bool_buffer(Size::in, List::in, BoolBuffer::out),
+    [promise_pure, will_not_call_mercury],
+"    
+    BoolBuffer = MR_GC_NEW(BOOL_BUFFER);
+    if (BoolBuffer != NULL) {
+        BoolBuffer->size = Size;
+        BoolBuffer->contents = MR_GC_malloc(sizeof(MR_Bool) * Size);
+        if (BoolBuffer->contents != NULL) {
+	    SUCCESS_INDICATOR = TRUE;
+	    
+	    for (int i = 0; i < Size && ! MR_list_is_empty(List); ++i) {
+	        MR_Bool L_i = MR_list_head(List);
+	        List = MR_list_tail(List);
+	        BoolBuffer->contents[i] = L_i;
+	    }
+	    
+	} else SUCCESS_INDICATOR = FALSE;
+    } else SUCCESS_INDICATOR = FALSE;
+    	    
+").
+
+:- pragma foreign_proc("C",
+    create_float_buffer(Size::in, List::in, FloatBuffer::out),
+    [promise_pure, will_not_call_mercury],
+"    
+    FloatBuffer = MR_GC_NEW(FLOAT_BUFFER);
+    if (FloatBuffer != NULL) {
+        FloatBuffer->size = Size;
+        FloatBuffer->contents = MR_GC_malloc(sizeof(MR_Float) * Size);
+        if (FloatBuffer->contents != NULL) {
+	    SUCCESS_INDICATOR = TRUE;
+	    
+	    for (int i = 0; i < Size && ! MR_list_is_empty(List); ++i) {
+	        MR_Float L_i = MR_word_to_float(MR_list_head(List));
+	        List = MR_list_tail(List);
+	        FloatBuffer->contents[i] = L_i;
+	    }
+	    
+	} else SUCCESS_INDICATOR = FALSE;
+    } else SUCCESS_INDICATOR = FALSE;
+    	    
+").
+
+:- pragma foreign_proc("C",
+    create_int_buffer(Size::in, List::in, IntBuffer::out),
+    [promise_pure, will_not_call_mercury],
+"    
+    IntBuffer = MR_GC_NEW(INT_BUFFER);
+    if (IntBuffer != NULL) {
+        IntBuffer->size = Size;
+        IntBuffer->contents = MR_GC_malloc(sizeof(MR_Integer) * Size);
+        if (IntBuffer->contents != NULL) {
+	    SUCCESS_INDICATOR = TRUE;
+		
+	    for (int i = 0; i < Size && ! MR_list_is_empty(List); ++i) {
+	        MR_Integer L_i = MR_list_head(List);
+	        List = MR_list_tail(List);
+	        IntBuffer->contents[i] = L_i;
+	    }
+	    
+	} else SUCCESS_INDICATOR = FALSE;
+    } else SUCCESS_INDICATOR = FALSE;
+    	    
+").
+
+:- pragma foreign_proc("C",
+    create_string_buffer(Size::in, List::in, StringBuffer::out),
+    [promise_pure, will_not_call_mercury],
+"    
+    StringBuffer = MR_GC_NEW(STRING_BUFFER);
+    if (StringBuffer != NULL) {
+        StringBuffer->size = Size;
+        StringBuffer->contents = MR_GC_malloc(sizeof(MR_String) * Size);
+        if (StringBuffer->contents != NULL) {
+	    SUCCESS_INDICATOR = TRUE;
+		
+	    for (int i = 0; i < Size && ! MR_list_is_empty(List); ++i) {
+	        MR_String L_i = (MR_String) MR_list_head(List);
+	        List = MR_list_tail(List);
+	        StringBuffer->contents[i] = L_i;
+	    }
+	    
+	} else SUCCESS_INDICATOR = FALSE;
+    } else SUCCESS_INDICATOR = FALSE;
+    	    
+").
+
+create_bool_buffer_det(Size, List, BoolBuffer) :-
+    ( if create_bool_buffer(Size, List, X) then
+	BoolBuffer = X
+    else
+	unexpected($pred, "Could not create bool buffer.")
+    ).
+
+create_float_buffer_det(Size, List, BoolBuffer) :-
+    ( if create_float_buffer(Size, List, X) then
+	BoolBuffer = X
+    else
+	unexpected($pred, "Could not create float buffer.")
+    ).
+
+create_int_buffer_det(Size, List, BoolBuffer) :-
+    ( if create_int_buffer(Size, List, X) then
+	BoolBuffer = X
+    else
+	unexpected($pred, "Could not create int buffer.")
+    ).
+
+create_string_buffer_det(Size, List, BoolBuffer) :-
+    ( if create_string_buffer(Size, List, X) then
+	BoolBuffer = X
+    else
+	unexpected($pred, "Could not create string buffer.")
+    ).
+
+    % Boolean helper predicates to test 'buffer' underlying sub-type.
 
 is_bool_buffer(bool(_)).
 
@@ -869,6 +1148,35 @@ float_buffer(Buffer) = Value :- float(Value) = Buffer.
 
 string_buffer(Buffer) = Value :- string(Value) = Buffer.
 
+    % det version of the above
+
+bool_buffer_det(Buffer) = Value :-
+     ( if bool(X) = Buffer then
+ 	Value = X
+     else
+ 	create_bool_buffer_det(no, Value)
+     ).
+
+int_buffer_det(Buffer) = Value :-
+    ( if int(X) = Buffer then
+	Value = X
+    else
+	create_int_buffer_det(0, Value)
+    ).
+   
+float_buffer_det(Buffer) = Value :-
+    ( if float(X) = Buffer then
+	Value = X
+    else
+	create_float_buffer_det(0.0, Value)
+    ).
+
+string_buffer_det(Buffer) = Value :-
+    ( if string(X) = Buffer then
+	Value = X
+    else
+	create_string_buffer_det("", Value)
+    ).
 
 from_bool_buffer(Value, Buffer) :- bool(Value) = Buffer.
 
@@ -880,8 +1188,8 @@ from_string_buffer(Value, Buffer) :- string(Value) = Buffer.
 
 :- pragma foreign_code("C",
 "
-Rboolean oldshow;
-static int num_old_gens_to_collect = 0;
+int oldshow;
+int num_old_gens_to_collect = 0;
 int R_ShowErrorMessages = 1;
 ").
 
@@ -1282,9 +1590,8 @@ int_vect(Code, Buffer, !IO) :-
             to int buffer."),
         io.set_exit_status(Errorcode, !IO)
     ),
-    from_int_buffer(IntBuffer, Buffer),
-    end_R(yes, no, Exitcode, !IO),
-    io.set_exit_status(Exitcode, !IO).
+    from_int_buffer(IntBuffer, Buffer).
+
 
     % Source R code into buffer array-like structure.
 
@@ -1304,9 +1611,8 @@ bool_vect(Code, Buffer, !IO) :-
             to bool buffer."),
         io.set_exit_status(Errorcode, !IO)
     ),
-    from_bool_buffer(BoolBuffer, Buffer),
-    end_R(yes, no, Exitcode, !IO),
-    io.set_exit_status(Exitcode, !IO).
+    from_bool_buffer(BoolBuffer, Buffer).
+
 
     % Source R code into buffer array-like structure.
 
@@ -1326,9 +1632,7 @@ float_vect(Code, Buffer, !IO) :-
             to float buffer."),
         io.set_exit_status(Errorcode, !IO)
     ),
-    from_float_buffer(FloatBuffer, Buffer),
-    end_R(yes, no, Exitcode, !IO),
-    io.set_exit_status(Exitcode, !IO).
+    from_float_buffer(FloatBuffer, Buffer).
 
     % Source R code into buffer array-like structure.
 
@@ -1408,6 +1712,8 @@ SUCCESS_INDICATOR = (Rf_isString(Sexp));
 
 %---- 'Cast'from sexp to built-in type (bool, float, int, string) ------------%
 
+to_bool(S, Value) :- to_bool(S) = Value.
+
 :- pragma foreign_proc("C",
     to_bool(Sexp::in) = (Value::out),
     [will_not_call_mercury, promise_pure, tabled_for_io,
@@ -1416,6 +1722,8 @@ SUCCESS_INDICATOR = (Rf_isString(Sexp));
 SUCCESS_INDICATOR = (Rf_isLogical(Sexp) && LOGICAL(Sexp)[0] != NA_LOGICAL);
 Value = Rf_asLogical(Sexp);
 ").
+
+to_bool_det(S, Value) :- to_bool_det(S) = Value.
 
 :- pragma foreign_proc("C",
     to_bool_det(Sexp::in) = (Value::out),
@@ -1429,6 +1737,8 @@ else {
 }
 ").
 
+to_float(S, Value) :- to_float(S) = Value.
+
 :- pragma foreign_proc("C",
     to_float(Sexp::in) = (Value::out),
     [will_not_call_mercury, promise_pure, tabled_for_io,
@@ -1437,6 +1747,11 @@ else {
 SUCCESS_INDICATOR = (Rf_isReal(Sexp) && R_finite(REAL(Sexp)[0]));
 Value = Rf_asReal(Sexp);
 ").
+
+
+:- pred to_bool_buffer_det(sexp::in,     bool_buffer::out)   is det.
+
+to_float_det(S, Value) :- to_float_det(S) = Value.
 
 :- pragma foreign_proc("C",
     to_float_det(Sexp::in) = (Value::out),
@@ -1450,6 +1765,7 @@ else {
 }
 ").
 
+to_int(S, Value) :- to_int(S) = Value.
 
 :- pragma foreign_proc("C",
     to_int(Sexp::in) = (Value::out),
@@ -1461,6 +1777,8 @@ Value = Rf_asInteger(Sexp);
 SUCCESS_INDICATOR = (errno != 0 && Value != NA_INTEGER);
 errno = 0;
 ").
+
+to_int_det(S, Value) :- to_int_det(S) = Value.
 
 :- pragma foreign_proc("C",
     to_int_det(Sexp::in) = (Value::out),
@@ -1475,6 +1793,8 @@ if (errno) {
 errno = 0;
 ").
 
+to_string(S, Value) :- to_string(S) = Value.
+
 :- pragma foreign_proc("C",
     to_string(Sexp::in) =  (Value::out),
     [will_not_call_mercury, promise_pure, tabled_for_io,
@@ -1486,6 +1806,8 @@ if (SUCCESS_INDICATOR == TRUE) {
   SUCCESS_INDICATOR = (Value != (MR_String) NA_STRING);
 }
 ").
+
+to_string_det(S, Value) :- to_string_det(S) = Value.
 
 :- pragma foreign_proc("C",
     to_string_det(Sexp::in) =  (Value::out),
@@ -1501,34 +1823,37 @@ else {
 
 %---- From sexp to <type>_buffer ---------------------------------------------%
 
+to_bool_buffer(Sexp) = Buffer :- to_bool_buffer(Sexp, Buffer).
+    
 :- pragma foreign_proc("C",
     to_bool_buffer(Sexp::in, Buffer::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-if (Rf_isInteger(Sexp) || Rf_isReal(Sexp) || Rf_isString(Sexp)) {
-    Sexp = Rf_coerceVector(Sexp, LGLSXP);
+SEXP S = (SEXP) Sexp; /* From MR_Word to SEXP */            
+if (Rf_isInteger(S) || Rf_isReal(S) || Rf_isString(S)) {
+    S = Rf_coerceVector(S, LGLSXP);
 }
 
 Buffer = MR_GC_NEW(BOOL_BUFFER);
-if (Buffer == NULL || ! Rf_isLogical(Sexp))
+if (Buffer == NULL || ! Rf_isLogical(S))
     SUCCESS_INDICATOR = FALSE;
 else {
-    MR_Integer S = LENGTH(Sexp);
-    Buffer->size = S;
-    if (S == 0) {
+    MR_Integer size = LENGTH(S);
+    Buffer->size = size;
+    if (size == 0) {
         SUCCESS_INDICATOR = FALSE;
     } else {
-        Rboolean *V = (Rboolean*) LOGICAL(Sexp);
+        Rboolean *V = (Rboolean*) LOGICAL(S);
         /* Rboolean is an int in R yet MR_Bool is MR_Word i.e.
            unsigned pointer size. On a 64-platform, this is 8 bytes,
            while int is 4 bytes. memcpy will not do. */
-        Buffer->contents = MR_GC_malloc(sizeof(MR_Bool) * S);
+        Buffer->contents = MR_GC_malloc(sizeof(MR_Bool) * size);
         if (Buffer->contents == NULL)
           SUCCESS_INDICATOR = FALSE;
         else {
-          /* memcpy(Buffer->contents, V, S); ? */
-          for (int i = 0; i < S; ++i)
+          /* memcpy(Buffer->contents, V, size); ? */
+          for (int i = 0; i < size; ++i)
             Buffer->contents[i] = (MR_Bool) V[i];
           SUCCESS_INDICATOR = TRUE;
         }
@@ -1539,66 +1864,78 @@ else {
 }
 ").
 
+to_float_buffer(Sexp) = Buffer :- to_float_buffer(Sexp, Buffer).
+
 :- pragma foreign_proc("C",
     to_float_buffer(Sexp::in, Buffer::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-if (Rf_isLogical(Sexp) || Rf_isInteger(Sexp) || Rf_isString(Sexp)) {
-    Sexp = Rf_coerceVector(Sexp, REALSXP);
+SEXP S = (SEXP) Sexp; /* From MR_Word to SEXP */        
+if (Rf_isLogical(S) || Rf_isInteger(S) || Rf_isString(S)) {
+    S = Rf_coerceVector(S, REALSXP);
 }
 
 Buffer = MR_GC_NEW(FLOAT_BUFFER);
-if (Buffer == NULL || ! Rf_isReal(Sexp))
+if (Buffer == NULL || ! Rf_isReal(S))
     SUCCESS_INDICATOR = FALSE;
 else {
-    MR_Integer S = LENGTH(Sexp);
-    Buffer->size = S;
-    if (S == 0) {
+    MR_Integer size = LENGTH(S);
+    Buffer->size = size;
+    if (size == 0) {
         SUCCESS_INDICATOR = FALSE;
     } else {
-        MR_Float *V1 = REAL(Sexp);
-        Buffer->contents = MR_GC_malloc(sizeof(MR_Float) * S);
+        MR_Float *V1 = REAL(S);
+        Buffer->contents = MR_GC_malloc(sizeof(MR_Float) * size);
         if (Buffer->contents == NULL)
             SUCCESS_INDICATOR = FALSE;
         else {
-            memcpy(Buffer->contents, V1, S);
+	 /* memcpy is possible as R 'numeric' vectors are of item
+	 *  size double, which is MR_Float.
+         *  Cautionary note: if definition of MR_Float should change,
+	 *  e.g. move to 'long double', code would be broken. */
+		
+            memcpy(Buffer->contents, V1, size * sizeof(MR_Float));
             SUCCESS_INDICATOR = TRUE;
         }
     }
 }
 ").
 
+to_int_buffer(Sexp) = Buffer :- to_int_buffer(Sexp, Buffer).
+
 :- pragma foreign_proc("C",
   to_int_buffer(Sexp::in, Buffer::out),
   [promise_pure, will_not_call_mercury, tabled_for_io,
    does_not_affect_liveness],
 "
+SEXP S = (SEXP) Sexp; /* From MR_Word to SEXP */    
 Buffer = MR_GC_NEW(INT_BUFFER);
-if (Rf_isLogical(Sexp) || Rf_isReal(Sexp) || Rf_isString(Sexp)) {
-    Sexp = Rf_coerceVector(Sexp, INTSXP);
+if (Rf_isLogical(S) || Rf_isReal(S) || Rf_isString(S)) {
+    S = Rf_coerceVector(S, INTSXP);
 }
 
-if (Buffer == NULL || ! Rf_isInteger(Sexp))
+if (Buffer == NULL || ! Rf_isInteger(S))
     SUCCESS_INDICATOR = FALSE;
 else {
-    MR_Integer S = LENGTH(Sexp);
-    Buffer->size = S;
-    if (S == 0) {
+    MR_Integer size = LENGTH(S);
+    Buffer->size = size;
+    if (size == 0) {
         SUCCESS_INDICATOR = FALSE;
     } else {
-        int *V = INTEGER(Sexp);
+        int *V = INTEGER(S);
         /* INTEGER creates an array of ints in R
            yet MR_INTEGER is void pointer size.
            On a 64-platform, this is 8 bytes,
            while int is 4 bytes. memcpy will not do. */
 
-        Buffer->contents = MR_GC_malloc(sizeof(MR_Integer) * S);
+        Buffer->contents = MR_GC_malloc(sizeof(MR_Integer) * size);
         if (Buffer->contents == NULL)
             SUCCESS_INDICATOR = FALSE;
         else {
-            //memcpy(Buffer->contents, V1, S);
-            for (int i = 0; i < S; ++i)
+            /* memcpy(Buffer->contents, V,
+		size * sizeof(MR_Integer)); --> This is *not* possible */
+            for (int i = 0; i < size; ++i)
                 Buffer->contents[i] = (MR_Integer) V[i];
 
             SUCCESS_INDICATOR = TRUE;
@@ -1607,38 +1944,43 @@ else {
 }
 ").
 
+to_string_buffer(Sexp) = Buffer :- to_string_buffer(Sexp, Buffer).
+
 :- pragma foreign_proc("C",
     to_string_buffer(Sexp::in, Buffer::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-if (! Rf_isString(Sexp)) {
-    if (Rf_isLogical(Sexp) || Rf_isInteger(Sexp) || Rf_isReal(Sexp)) {
-        Sexp = Rf_coerceVector(Sexp, STRSXP);
+SEXP S = (SEXP) Sexp; /* From MR_Word to SEXP */
+    
+if (! Rf_isString(S)) {
+    if (Rf_isLogical(S) || Rf_isInteger(S) || Rf_isReal(S)) {
+        S = Rf_coerceVector(S, STRSXP);
+	
     }
 }
+	
 Buffer = MR_GC_NEW(STRING_BUFFER);
-if (Buffer == NULL || ! Rf_isString(Sexp)) {
+if (Buffer == NULL || ! Rf_isString(S)) {
     SUCCESS_INDICATOR = FALSE;
 } else {
-    MR_Integer S = LENGTH(Sexp);
-    Buffer->size = S;
-    if (S == 0) {
+    MR_Integer size = LENGTH(S);
+    Buffer->size = size;
+    if (size == 0) {
         SUCCESS_INDICATOR = FALSE;
     } else {
-        Buffer->contents = MR_GC_malloc(sizeof(MR_String) * S);
+        Buffer->contents = MR_GC_malloc(sizeof(MR_String) * size);
         if (Buffer->contents == NULL)
             SUCCESS_INDICATOR = FALSE;
         else {
-            for (int j = 0; j < S; ++j) {
-                MR_String Sj = (MR_String) CHAR(STRING_ELT(Sexp, j));
+            for (int j = 0; j < size; ++j) {
+                MR_String Sj = (MR_String) CHAR(STRING_ELT(S, j));
                 MR_Integer Lj = strlen(Sj);
                 Buffer->contents[j] = MR_GC_malloc(Lj + 1);
                 if (Buffer->contents[j] == NULL)
                     SUCCESS_INDICATOR = FALSE;
                 else {
-                    memcpy(Buffer->contents[j], Sj, Lj);
-                    Buffer->contents[j + 1] = 0;
+                    memcpy(Buffer->contents[j], Sj, Lj + 1);
                 }
             }
             SUCCESS_INDICATOR = TRUE;
@@ -1646,6 +1988,40 @@ if (Buffer == NULL || ! Rf_isString(Sexp)) {
     }
 }
 ").
+
+to_bool_buffer_det(Sexp, Buffer) :-
+    ( if to_bool_buffer(Sexp, X) then
+	Buffer = X
+    else
+	create_bool_buffer(no, Buffer)
+    ).
+
+to_float_buffer_det(Sexp, Buffer) :-
+    ( if to_float_buffer(Sexp, X) then
+	Buffer = X
+    else
+	create_float_buffer(0.0, Buffer)
+    ).
+
+to_int_buffer_det(Sexp, Buffer) :-
+    ( if to_int_buffer(Sexp, X) then
+	Buffer = X
+    else
+	create_int_buffer(0, Buffer)
+    ).
+
+to_string_buffer_det(Sexp, Buffer) :-
+    ( if to_string_buffer(Sexp, X) then
+	Buffer = X
+    else
+	create_string_buffer("", Buffer)
+    ).
+
+to_bool_buffer(Sexp, Buffer)   :- to_bool_buffer(Sexp)   = Buffer.
+to_float_buffer(Sexp, Buffer)  :- to_float_buffer(Sexp)  = Buffer.
+to_int_buffer(Sexp, Buffer)    :- to_int_buffer(Sexp)    = Buffer.
+to_string_buffer(Sexp, Buffer) :- to_string_buffer(Sexp) = Buffer.
+
 
 %---- 'Cast' from sexp to univ-like type 'buffer' ----------------------------%
 
@@ -1665,6 +2041,27 @@ to_buffer(Sexp, Buffer) :-
     else
         fail
     ).
+
+to_buffer(Sexp) = Buffer :- to_buffer(Sexp, Buffer).
+
+to_buffer_det(Sexp, Buffer) :-
+    ( if is_bool(Sexp) then
+        to_bool_buffer_det(Sexp, BoolBuffer),
+        from_bool_buffer(BoolBuffer, Buffer)
+    else if is_float(Sexp) then
+        to_float_buffer_det(Sexp, FloatBuffer),
+        from_float_buffer(FloatBuffer, Buffer)
+    else if is_int(Sexp) then
+        to_int_buffer_det(Sexp, IntBuffer),
+        from_int_buffer(IntBuffer, Buffer)
+    else if is_string(Sexp) then
+        to_string_buffer_det(Sexp, StringBuffer),
+        from_string_buffer(StringBuffer, Buffer)
+    else
+        fail
+    ).
+
+to_buffer_det(Sexp) = Buffer :- to_buffer_det(Sexp, Buffer).
 
 %---- 'Cast' from built-in type (bool, float, int, string) to sexp -----------%
 
@@ -1954,7 +2351,7 @@ if (Buffer == NULL
     || Buffer->size <= 0
     || Index < 0)
 
-    Value = 0;
+    Value = MR_NO;
 else
     Value=(MR_Bool) Buffer->contents[Index];
 ").
@@ -2015,42 +2412,27 @@ else
     % Index is zero-based.
 
 lookup(Buffer, Index, Item) :-
-    ( if
-        is_int_buffer(Buffer)
-    then
-        ( if
-            lookup_int_vect(int_buffer(Buffer), Index, Value)
-        then
+    ( if is_int_buffer(Buffer) then
+        ( if lookup_int_vect(int_buffer(Buffer), Index, Value) then
             Item = int_base(Value)
         else
             Item = int_base(0)
         )
-    else if
-        is_float_buffer(Buffer)
-    then
-        ( if
-            lookup_float_vect(float_buffer(Buffer), Index, Value)
-        then
+    else if is_float_buffer(Buffer) then
+        ( if lookup_float_vect(float_buffer(Buffer), Index, Value) then
             Item = float_base(Value)
         else
             Item = float_base(0.0)
         )
-    else if
-        is_bool_buffer(Buffer)
+    else if is_bool_buffer(Buffer)
     then
-        ( if
-            lookup_bool_vect(bool_buffer(Buffer), Index, Value)
-        then
+        ( if lookup_bool_vect(bool_buffer(Buffer), Index, Value) then
             Item = bool_base(Value)
         else
             Item = bool_base(no)
         )
-    else if
-        is_string_buffer(Buffer)
-    then
-        ( if
-            lookup_string_vect(string_buffer(Buffer), Index, Value)
-        then
+    else if is_string_buffer(Buffer) then
+        ( if lookup_string_vect(string_buffer(Buffer), Index, Value) then
             Item = string_base(Value)
         else
             Item = string_base("")
@@ -2705,7 +3087,7 @@ marshall_vect_to_list(Buffer) = List :-
     % Print helper for R booleans in R output format.
     % Is this really useful? Hum.
 
-write_bool(Value, !IO) :-
+write_rbool(Value, !IO) :-
     ( if
         Value = yes
     then
@@ -2714,23 +3096,19 @@ write_bool(Value, !IO) :-
         write_string("FALSE", !IO)
     ).
 
-writeln_bool(Value, !IO) :- write_bool(Value, !IO), io.nl(!IO).
+writeln_rbool(Value, !IO) :- write_rbool(Value, !IO), io.nl(!IO).
 
     % Print helper for catch-all type 'buffer_item'
 
 write_item(Item, !IO) :-
-    ( if
-        Item = int_base(Value)
-    then
+    ( if Item = int_base(Value) then
         io.write_int(Value, !IO)
-    else if
-        Item = float_base(Value)
-    then
+    else if Item = float_base(Value) then
         io.write_float(Value, !IO)
-    else if
-        Item = string_base(Value)
-    then
+    else if Item = string_base(Value) then
         io.write_string(Value, !IO)
+    else if Item = bool_base(Value) then
+	ri.write_rbool(Value, !IO)
     else
         io.nl(!IO)
     ).

@@ -41,7 +41,7 @@ main(!IO) :-
     eval_int("a<-8", E, !IO),
     write_int(E, !IO),nl(!IO),
     eval_bool("a<-FALSE", E1, !IO),
-    write_bool(E1, !IO),nl(!IO),
+    writeln_rbool(E1, !IO),
     eval_float("a<-0.2", E2, !IO),
     write_float(E2, !IO),nl(!IO),
     eval_string("a<-""abcs""", E3, !IO),
@@ -49,6 +49,28 @@ main(!IO) :-
     string_vect("c(""abcd"", ""efgh"")", E4,!IO),
     lookup(E4, 0, S),
     writeln_item(S, !IO),
+    int_vect("c(1234, 5678)", E5,!IO),
+    lookup(E5, 0, S1),
+    writeln_item(S1, !IO),
+    float_vect("c(1234.2, 5678.0)", E6,!IO),
+    lookup(E6, 0, S2),
+    writeln_item(S2, !IO),
+    bool_vect("c(FALSE, TRUE)", E7,!IO),
+    lookup_bool_vect(bool_buffer_det(E7), 1, S3),
+    % issue with lookup(E7, 1, S3)
+    writeln_rbool(S3, !IO),
+    lookup_bool_vect_size(bool_buffer_det(E7), S4),
+    write_int(S4, !IO),nl(!IO),
+    lookup_buffer_vect_size(E7, S5),
+    write_int(S5, !IO),nl(!IO),
+    create_string_buffer_det(3, ["aze", "zzz", "bcf"], StringBuffer),
+    lookup_string_vect(StringBuffer, 2, S6),
+    write_string(S6, !IO),nl(!IO),
+    source_string_echo("data.table::fread(""a.csv"")[[1]]", Sexp, Res, !IO),
+    write_int(Res, !IO),
+    to_bool_buffer(Sexp, BoolBuffer),
+    %lookup_bool_vect(BoolBuffer, 2, S10),
+    %write_rbool(S10, !IO)
     io.nl(!IO).
 
 :- initialise start_R/2.
