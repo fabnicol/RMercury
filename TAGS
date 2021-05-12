@@ -1,272 +1,513 @@
 
-ri.m,8569
-:- module ri59,2509
-:- import_module array62,2538
-:- import_module array2d63,2562
-:- import_module bool64,2588
-:- import_module io65,2611
-:- import_module list66,2632
-:- import_module type_desc67,2655
-:- import_module univ68,2683
-:- type bool_buffer76,2900
-:- type float_buffer77,2921
-:- type int_buffer78,2943
-:- type string_buffer79,2963
-:- type allow83,3011
-:- type behavior91,3210
-:- type buffer112,4142
-:- type buffer_item122,4542
-:- type ri.parse_status132,5037
-:- type ri.error142,5345
-:- type sexp158,6196
-:- pragma foreign_type(160,6211
-:- pred is_bool_buffer(168,6413
-:- pred is_int_buffer(169,6460
-:- pred is_float_buffer(170,6506
-:- pred is_string_buffer(171,6554
-:- func bool_buffer(179,6830
-:- func int_buffer(180,6884
-:- func float_buffer(181,6936
-:- func string_buffer(182,6992
-:- pred from_bool_buffer(190,7271
-:- pred from_int_buffer(191,7334
-:- pred from_float_buffer(192,7395
-:- pred from_string_buffer(193,7460
-:- typeclass length(197,7569
-:- instance length(201,7647
-:- pred lookup_bool_vect(217,8348
-:- pred lookup_float_vect(218,8418
-:- pred lookup_int_vect(219,8491
-:- pred lookup_string_vect(220,8558
-:- pred lookup(227,8837
-:- pred write_bool(233,9042
-:- pred write_item(237,9156
-:- pred start_R(250,9525
-:- mode start_R(252,9577
-:- pred start_R_semidet(258,9734
-:- mode start_R_semidet(260,9780
-:- pred start_R(268,9992
-:- mode start_R(270,10029
-:- pred start_R_semidet(276,10170
-:- mode start_R_semidet(278,10201
-:- pred end_R(287,10470
-:- pred end_R_semidet(293,10656
-:- pred shutdown_R(302,10894
-:- pred source(341,12480
-:- mode source(342,12534
-:- func source(344,12588
-:- mode source(345,12643
-:- pred source(347,12698
-:- mode source(348,12741
-:- func source(350,12787
-:- mode source(351,12831
-:- pred source_echo(353,12878
-:- mode source_echo(354,12926
-:- func source_echo(356,12977
-:- mode source_echo(357,13026
-:- pred source(359,13078
-:- mode source(360,13116
-:- func source(362,13157
-:- mode source(363,13196
-:- pred source_echo(365,13238
-:- mode source_echo(366,13281
-:- func source_echo(368,13327
-:- mode source_echo(369,13371
-:- pred source(371,13418
-:- pred source_echo(373,13470
-:- pred source_string(394,14430
-:- mode source_string(395,14505
-:- func source_string(397,14571
-:- mode source_string(398,14647
-:- pred source_string(400,14714
-:- mode source_string(401,14764
-:- func source_string(403,14817
-:- mode source_string(404,14868
-:- pred source_string_echo(406,14922
-:- mode source_string_echo(407,14977
-:- func source_string_echo(409,15035
-:- mode source_string_echo(410,15091
-:- pred source_string(412,15150
-:- mode source_string(413,15195
-:- func source_string(415,15243
-:- mode source_string(416,15289
-:- pred source_string_echo(418,15338
-:- mode source_string_echo(419,15388
-:- func source_string_echo(421,15441
-:- mode source_string_echo(422,15492
-:- pred source_string(424,15546
-:- pred source_string_echo(426,15605
-:- typeclass eval(439,15990
-:- pred eval_bool(452,16340
-:- pred eval_float(453,16407
-:- pred eval_int(457,16576
-:- pred eval_string(458,16645
-:- pred bool_vect(475,17264
-:- pred float_vect(476,17331
-:- pred int_vect(477,17399
-:- pred string_vect(478,17465
-:- pred lookup_bool_vect_size(491,17879
-:- pred lookup_int_vect_size(492,17948
-:- pred lookup_float_vect_size(493,18017
-:- pred lookup_string_vect_size(494,18086
-:- func lookup_bool_vect_size(496,18156
-:- func lookup_int_vect_size(497,18210
-:- func lookup_float_vect_size(498,18264
-:- func lookup_string_vect_size(499,18318
-:- pred lookup_buffer_vect_size(505,18477
-:- func lookup_buffer_vect_size(506,18539
-:- pred get_sexp_type(517,18844
-:- pred is_bool(519,18905
-:- pred is_float(520,18945
-:- pred is_int(521,18985
-:- pred is_string(522,19025
-:- func to_bool(526,19096
-:- func to_float(527,19162
-:- func to_int(528,19228
-:- func to_string(529,19293
-:- func to_bool_det(531,19362
-:- func to_float_det(532,19429
-:- func to_int_det(533,19494
-:- func to_string_det(534,19556
-:- pred to_bool_buffer(538,19652
-:- pred to_float_buffer(539,19721
-:- pred to_int_buffer(540,19790
-:- pred to_string_buffer(541,19859
-:- pred to_buffer(545,19967
-:- pred bool_to_sexp(549,20051
-:- pred float_to_sexp(550,20109
-:- pred int_to_sexp(551,20167
-:- pred string_to_sexp(552,20225
-:- pred bool_buffer_to_sexp(556,20313
-:- pred float_buffer_to_sexp(557,20385
-:- pred int_buffer_to_sexp(558,20457
-:- pred string_buffer_to_sexp(559,20529
-:- pred nil_sexp(562,20627
-:- pred buffer_to_sexp(566,20697
-:- func buffer_to_sexp(568,20756
-:- func apply_to_bool(586,21471
-:- mode apply_to_bool(587,21541
-:- func apply_to_float(597,21952
-:- mode apply_to_float(598,22024
-:- func apply_to_int(606,22319
-:- mode apply_to_int(607,22387
-:- func apply_to_string(615,22687
-:- mode apply_to_string(616,22761
-:- func apply_to_bool2d(641,23791
-:- mode apply_to_bool2d(642,23870
-:- func apply_to_float2d(643,23943
-:- mode apply_to_float2d(644,24024
-:- func apply_to_int2d(645,24098
-:- mode apply_to_int2d(646,24175
-:- func apply_to_string2d(647,24247
-:- mode apply_to_string2d(649,24356
-:- func apply_to_univ2d(671,25176
-:- mode apply_to_univ2d(673,25251
-:- func apply_to_univ_list_arrays(682,25572
-:- mode apply_to_univ_list_arrays(685,25666
-:- import_module char693,25932
-:- import_module exception694,25955
-:- import_module float695,25983
-:- import_module int696,26007
-:- import_module math697,26029
-:- import_module require698,26052
-:- import_module string699,26078
-:- pragma require_feature_set(701,26104
-:- type sexp_container703,26174
-:- pragma foreign_decl(710,26370
-:- pragma foreign_enum(727,26690
-:- pragma foreign_decl(759,27839
-:- pragma foreign_type(814,29002
-is_bool_buffer(828,29444
-is_int_buffer(830,29470
-is_float_buffer(832,29494
-is_string_buffer(834,29522
-bool_buffer(838,29602
-int_buffer(840,29656
-float_buffer(842,29708
-string_buffer(844,29764
-from_bool_buffer(847,29823
-from_int_buffer(849,29881
-from_float_buffer(851,29937
-from_string_buffer(853,29997
-:- pragma foreign_code(855,30059
-:- pragma foreign_decl(862,30181
-:- pragma foreign_proc(895,31433
-source(1051,34503
-:- pragma foreign_proc(1054,34627
-source(1085,35353
-source_echo(1103,35861
-source(1122,36400
-source_echo(1124,36444
-source_string(1128,36579
-:- pragma foreign_proc(1131,36738
-source_string(1179,37897
-source_string_echo(1199,38496
-source_string(1220,39126
-source_string_echo(1222,39184
-:- instance eval(1233,39520
-eval_float(1251,39865
-eval_string(1264,40303
-eval_int(1272,40427
-eval_bool(1275,40502
-:- pred eval_F(1278,40579
-:- mode eval_F(1280,40634
-eval_F(1282,40698
-int_vect(1299,41106
-bool_vect(1321,41762
-float_vect(1343,42426
-string_vect(1365,43096
-get_sexp_type(1394,44054
-:- pragma foreign_proc(1409,44451
-to_buffer(1685,51984
-:- pragma foreign_proc(1704,52601
-buffer_to_sexp(1864,57028
-lookup_bool_vect_size(1882,57572
-lookup_int_vect_size(1884,57650
-lookup_float_vect_size(1886,57726
-lookup_string_vect_size(1888,57806
-:- pragma foreign_proc(1892,57917
-lookup_buffer_vect_size(1914,58635
-:- typeclass length(1965,59747
-:- instance length(1971,59874
-:- pragma foreign_proc(1981,60118
-lookup(2047,61798
-:- pragma foreign_proc(2101,63081
-:- pragma foreign_decl(2253,67465
-:- pragma foreign_proc(2267,67870
-:- pragma foreign_code(2313,69598
-apply_to_univ2d(2401,71859
-:- pred univ_to_type_name(2409,72170
-univ_to_type_name(2412,72281
-:- func to_type_name(2416,72436
-:- mode to_type_name(2418,72488
-to_type_name(2420,72532
-:- func apply_to_univ2d_helper(2423,72619
-:- mode apply_to_univ2d_helper(2427,72732
-:- pragma foreign_proc(2431,72835
-apply_to_univ_list_arrays(2502,75439
-:- pred univ_to_type_name_list(2513,75933
-univ_to_type_name_list(2516,76045
-:- func to_type_name_list(2521,76211
-to_type_name_list(2523,76261
-:- pred apply_to_univ_list_arrays_helper(2526,76347
-:- mode apply_to_univ_list_arrays_helper(2530,76480
-:- pragma foreign_decl(2534,76586
-:- pragma foreign_proc(2541,76806
-:- pragma foreign_code(2612,79256
-:- func to_float_base(2633,79881
-to_float_base(2635,79926
-:- pred check_finite(2637,79991
-:- mode check_finite(2639,80091
-check_finite(2642,80181
-:- pred marshall_vect_to_list(2687,81441
-marshall_vect_to_list(2690,81564
-:- pred marshall_helper(2700,81805
-marshall_helper(2703,81948
-:- func marshall_vect_to_list(2714,82195
-marshall_vect_to_list(2716,82255
-:- typeclass to_list(2719,82360
-:- instance to_list(2727,82621
-write_bool(2738,82951
-write_item(2749,83154
-:- end_module ri2767,83557
+ri.m,15857
+:- module ri77,3274
+:- import_module array80,3303
+:- import_module array2d81,3327
+:- import_module bool82,3353
+:- import_module io83,3376
+:- import_module list84,3397
+:- import_module type_desc85,3420
+:- import_module univ86,3448
+:- type bool_buffer96,3746
+:- type float_buffer97,3767
+:- type int_buffer98,3789
+:- type string_buffer99,3809
+:- type nil_sexp103,3885
+:- type nil_buffer104,3903
+:- type nil_item105,3923
+:- type allow109,3966
+:- type behavior117,4165
+:- type buffer138,5097
+:- type r_buffer148,5561
+:- type buffer_item152,5636
+:- type ri.parse_status162,6131
+:- type ri.error172,6439
+:- type sexp188,7290
+:- typeclass type_range(192,7340
+:- typeclass buffer_range(194,7407
+:- typeclass length(198,7521
+:- instance length(202,7623
+:- typeclass eval(212,7972
+:- typeclass from_buffer(228,8378
+:- typeclass to_buffer(236,8599
+:- pred create_bool_buffer(267,9625
+:- func create_bool_buffer(268,9698
+:- pred create_float_buffer(270,9772
+:- func create_float_buffer(271,9845
+:- pred create_int_buffer(273,9919
+:- func create_int_buffer(274,9992
+:- pred create_string_buffer(276,10066
+:- func create_string_buffer(277,10142
+:- pred create_bool_buffer_det(287,10505
+:- func create_bool_buffer_det(288,10574
+:- pred create_float_buffer_det(290,10627
+:- func create_float_buffer_det(291,10700
+:- pred create_int_buffer_det(293,10756
+:- func create_int_buffer_det(294,10823
+:- pred create_string_buffer_det(296,10873
+:- func create_string_buffer_det(297,10949
+:- pred create_bool_buffer(309,11488
+:- mode create_bool_buffer(310,11546
+:- func create_bool_buffer(312,11652
+:- pred create_float_buffer(314,11723
+:- mode create_float_buffer(315,11784
+:- func create_float_buffer(317,11892
+:- pred create_int_buffer(319,11966
+:- mode create_int_buffer(320,12021
+:- func create_int_buffer(322,12125
+:- pred create_string_buffer(324,12193
+:- mode create_string_buffer(325,12257
+:- func create_string_buffer(327,12367
+:- pred create_bool_buffer_det(337,12740
+:- func create_bool_buffer_det(339,12828
+:- pred create_float_buffer_det(341,12892
+:- func create_float_buffer_det(343,12982
+:- pred create_int_buffer_det(345,13049
+:- func create_int_buffer_det(347,13135
+:- pred create_string_buffer_det(349,13196
+:- func create_string_buffer_det(351,13288
+:- pred is_bool_buffer(359,13516
+:- pred is_int_buffer(360,13565
+:- pred is_float_buffer(361,13614
+:- pred is_string_buffer(362,13663
+:- pred bool_buffer(372,13986
+:- mode bool_buffer(373,14029
+:- func bool_buffer(375,14133
+:- pred int_buffer(377,14188
+:- mode int_buffer(378,14229
+:- func int_buffer(380,14329
+:- pred float_buffer(382,14382
+:- mode float_buffer(383,14427
+:- func float_buffer(385,14507
+:- pred string_buffer(387,14564
+:- mode string_buffer(388,14611
+:- func string_buffer(390,14693
+:- func from_bool_buffer(399,14994
+:- func from_int_buffer(400,15053
+:- func from_float_buffer(401,15112
+:- func from_string_buffer(402,15171
+:- pred bool_buffer_det(413,15591
+:- mode bool_buffer_det(415,15679
+:- func bool_buffer_det(416,15720
+:- pred int_buffer_det(418,15775
+:- mode int_buffer_det(420,15860
+:- func int_buffer_det(421,15900
+:- pred float_buffer_det(423,15953
+:- mode float_buffer_det(425,16044
+:- func float_buffer_det(426,16086
+:- pred string_buffer_det(428,16143
+:- mode string_buffer_det(430,16237
+:- func string_buffer_det(431,16280
+:- pred swap_bool_and_r_buffer(443,16820
+:- mode swap_bool_and_r_buffer(444,16875
+:- pred swap_float_and_r_buffer(447,16972
+:- mode swap_float_and_r_buffer(448,17029
+:- pred swap_int_and_r_buffer(451,17128
+:- mode swap_int_and_r_buffer(452,17181
+:- pred swap_string_and_r_buffer(455,17276
+:- mode swap_string_and_r_buffer(456,17335
+:- pred lookup_bool_vect(473,18108
+:- pred lookup_float_vect(474,18184
+:- pred lookup_int_vect(475,18260
+:- pred lookup_string_vect(476,18336
+:- pred lookup(483,18615
+:- pred write_rbool(489,18769
+:- pred writeln_rbool(493,18875
+:- pred write_item(499,19027
+:- pred writeln_item(505,19174
+:- pred start_R(519,19625
+:- mode start_R(520,19676
+:- pred start_R_semidet(528,19949
+:- mode start_R_semidet(529,19994
+:- pred start_R(537,20206
+:- mode start_R(538,20242
+:- pred start_R(541,20333
+:- mode start_R(542,20358
+:- pred start_R_echo(544,20391
+:- mode start_R_echo(545,20421
+:- pred start_R_semidet(551,20558
+:- mode start_R_semidet(552,20588
+:- pred end_R(561,20857
+:- pred end_R_semidet(573,21147
+:- pred shutdown_R(582,21385
+:- pred source(623,23052
+:- mode source(624,23106
+:- func source(626,23160
+:- mode source(627,23215
+:- pred source(629,23270
+:- mode source(630,23313
+:- func source(632,23359
+:- mode source(633,23403
+:- pred source_echo(635,23450
+:- mode source_echo(636,23498
+:- func source_echo(638,23549
+:- mode source_echo(639,23598
+:- pred source(641,23650
+:- mode source(642,23688
+:- func source(644,23729
+:- mode source(645,23768
+:- pred source_echo(647,23810
+:- mode source_echo(648,23853
+:- func source_echo(650,23899
+:- mode source_echo(651,23943
+:- pred source(653,23990
+:- pred source_echo(655,24042
+:- pred source_string(676,25002
+:- mode source_string(677,25077
+:- func source_string(679,25143
+:- mode source_string(680,25219
+:- pred source_string(682,25286
+:- mode source_string(683,25336
+:- func source_string(685,25389
+:- mode source_string(686,25440
+:- pred source_string_echo(688,25494
+:- mode source_string_echo(689,25549
+:- func source_string_echo(691,25607
+:- mode source_string_echo(692,25663
+:- pred source_string(694,25722
+:- mode source_string(695,25767
+:- func source_string(697,25815
+:- mode source_string(698,25861
+:- pred source_string_echo(700,25910
+:- mode source_string_echo(701,25960
+:- func source_string_echo(703,26013
+:- mode source_string_echo(704,26064
+:- pred source_string(706,26118
+:- pred source_string_echo(708,26177
+:- pred eval_bool(725,26747
+:- pred eval_float(726,26816
+:- pred eval_int(730,26987
+:- pred eval_string(731,27056
+:- pred bool_vect(749,27755
+:- pred float_vect(750,27824
+:- pred int_vect(751,27893
+:- pred string_vect(752,27962
+:- pred lookup_bool_vect_size(766,28456
+:- pred lookup_int_vect_size(767,28525
+:- pred lookup_float_vect_size(768,28594
+:- pred lookup_string_vect_size(769,28663
+:- func lookup_bool_vect_size(771,28733
+:- func lookup_int_vect_size(772,28787
+:- func lookup_float_vect_size(773,28841
+:- func lookup_string_vect_size(774,28895
+:- pred lookup_buffer_vect_size(780,29054
+:- func lookup_buffer_vect_size(781,29116
+:- pred get_sexp_type(793,29501
+:- pred is_bool(795,29562
+:- pred is_float(796,29602
+:- pred is_int(797,29642
+:- pred is_string(798,29682
+:- pred to_bool(802,29753
+:- pred to_float(803,29827
+:- pred to_int(804,29902
+:- pred to_string(805,29975
+:- func to_bool(807,30052
+:- func to_float(808,30118
+:- func to_int(809,30184
+:- func to_string(810,30249
+:- pred to_bool_det(812,30318
+:- pred to_float_det(813,30393
+:- pred to_int_det(814,30466
+:- pred to_string_det(815,30536
+:- func to_bool_det(817,30612
+:- func to_float_det(818,30679
+:- func to_int_det(819,30744
+:- func to_string_det(820,30806
+:- pred to_bool_buffer(830,31108
+:- pred to_float_buffer(831,31177
+:- pred to_int_buffer(832,31246
+:- pred to_string_buffer(833,31315
+:- func to_bool_buffer(835,31385
+:- func to_float_buffer(836,31444
+:- func to_int_buffer(837,31503
+:- func to_string_buffer(838,31562
+:- pred to_bool_buffer_det(850,31957
+:- pred to_float_buffer_det(851,32026
+:- pred to_int_buffer_det(852,32095
+:- pred to_string_buffer_det(853,32164
+:- func to_bool_buffer_det(855,32234
+:- func to_float_buffer_det(856,32293
+:- func to_int_buffer_det(857,32352
+:- func to_string_buffer_det(858,32411
+:- pred to_buffer(862,32509
+:- func to_buffer(863,32562
+:- pred to_buffer_det(865,32616
+:- func to_buffer_det(866,32669
+:- pred bool_to_sexp(870,32753
+:- pred float_to_sexp(871,32811
+:- pred int_to_sexp(872,32869
+:- pred string_to_sexp(873,32927
+:- pred bool_to_sexp_det(875,32986
+:- pred float_to_sexp_det(876,33044
+:- pred int_to_sexp_det(877,33102
+:- pred string_to_sexp_det(878,33160
+:- pred bool_buffer_to_sexp(882,33248
+:- pred float_buffer_to_sexp(883,33320
+:- pred int_buffer_to_sexp(884,33392
+:- pred string_buffer_to_sexp(885,33464
+:- pred bool_buffer_to_sexp_det(887,33537
+:- pred float_buffer_to_sexp_det(888,33609
+:- pred int_buffer_to_sexp_det(889,33681
+:- pred string_buffer_to_sexp_det(890,33753
+:- func apply_to_bool(910,34571
+:- mode apply_to_bool(911,34641
+:- func apply_to_float(921,35052
+:- mode apply_to_float(922,35124
+:- func apply_to_int(930,35419
+:- mode apply_to_int(931,35487
+:- func apply_to_string(939,35787
+:- mode apply_to_string(940,35861
+:- func apply_to_bool2d(967,36972
+:- mode apply_to_bool2d(968,37051
+:- func apply_to_float2d(969,37124
+:- mode apply_to_float2d(970,37205
+:- func apply_to_int2d(971,37279
+:- mode apply_to_int2d(972,37356
+:- func apply_to_string2d(973,37428
+:- mode apply_to_string2d(975,37537
+:- func apply_to_univ2d(997,38357
+:- mode apply_to_univ2d(999,38432
+:- func apply_to_univ_list_arrays(1008,38753
+:- mode apply_to_univ_list_arrays(1011,38847
+:- pred marshall_vect_to_list(1020,39063
+:- import_module char1028,39341
+:- import_module exception1029,39364
+:- import_module float1030,39392
+:- import_module int1031,39416
+:- import_module math1032,39438
+:- import_module require1033,39461
+:- import_module string1034,39487
+:- import_module term1035,39512
+:- import_module term_conversion1036,39535
+:- pragma require_feature_set(1038,39570
+:- type nil_buffer1040,39640
+:- type nil_item1041,39706
+:- pragma foreign_proc(1044,39803
+:- type sexp1049,39914
+:- type r_buffer1055,40036
+:- pragma foreign_decl(1061,40194
+:- pragma foreign_enum(1078,40514
+:- pragma foreign_decl(1110,41663
+:- pragma foreign_type(1218,44690
+create_bool_buffer(1241,45513
+create_bool_buffer_det(1247,45677
+create_float_buffer(1253,45855
+create_float_buffer_det(1259,46027
+create_int_buffer(1265,46215
+create_int_buffer_det(1271,46385
+create_string_buffer(1277,46568
+create_string_buffer_det(1283,46750
+:- pragma promise_pure(1289,46940
+:- pragma foreign_proc(1295,47157
+create_bool_buffer(1320,47906
+:- pragma promise_pure(1328,48133
+:- pragma foreign_proc(1330,48181
+create_float_buffer(1355,48958
+:- pragma promise_pure(1363,49188
+:- pragma foreign_proc(1365,49234
+create_int_buffer(1390,49979
+:- pragma promise_pure(1398,50203
+:- pragma foreign_proc(1400,50252
+create_string_buffer(1425,51032
+create_bool_buffer_det(1433,51265
+create_float_buffer_det(1440,51456
+create_int_buffer_det(1447,51650
+create_string_buffer_det(1454,51838
+create_bool_buffer_det(1461,52035
+create_float_buffer_det(1464,52131
+create_int_buffer_det(1467,52229
+create_string_buffer_det(1470,52323
+:- pragma foreign_proc(1473,52423
+is_bool_buffer(1621,56705
+is_int_buffer(1623,56731
+is_float_buffer(1625,56755
+is_string_buffer(1627,56783
+bool_buffer(1631,56872
+int_buffer(1633,56926
+float_buffer(1635,56978
+string_buffer(1637,57034
+bool_buffer(1640,57093
+int_buffer(1642,57146
+float_buffer(1644,57197
+string_buffer(1646,57252
+bool_buffer_det(1650,57341
+int_buffer_det(1657,57480
+float_buffer_det(1664,57613
+string_buffer_det(1671,57754
+bool_buffer_det(1678,57897
+int_buffer_det(1680,57965
+float_buffer_det(1682,58031
+string_buffer_det(1684,58101
+from_bool_buffer(1688,58217
+from_int_buffer(1690,58276
+from_float_buffer(1692,58333
+from_string_buffer(1694,58394
+:- pragma foreign_code(1714,59263
+:- pragma foreign_decl(1721,59393
+:- pragma foreign_proc(1736,59843
+start_R(1774,60678
+start_R_semidet(1778,60810
+start_R(1782,60932
+start_R_echo(1784,60971
+:- pragma foreign_proc(1788,61041
+end_R(1805,61326
+:- pragma foreign_proc(1807,61365
+source(1861,62373
+:- pragma foreign_proc(1864,62497
+source(1895,63223
+source_echo(1913,63745
+source(1932,64301
+source_echo(1934,64345
+source_string(1938,64480
+:- pragma foreign_proc(1941,64639
+source_string(1989,65798
+source_string_echo(2001,66181
+source_string(2013,66593
+source_string_echo(2015,66651
+:- instance type_range(2025,66986
+:- instance buffer_range(2030,67151
+:- instance eval(2035,67352
+:- instance from_buffer(2059,67948
+:- instance to_buffer(2079,68586
+eval_float(2125,70171
+eval_string(2138,70609
+eval_int(2145,70732
+eval_bool(2148,70807
+:- pred eval_F(2151,70884
+:- mode eval_F(2153,70939
+eval_F(2155,71003
+int_vect(2166,71280
+bool_vect(2186,71863
+float_vect(2207,72455
+string_vect(2227,73052
+get_sexp_type(2254,73937
+:- pragma foreign_proc(2269,74334
+to_bool(2303,75166
+:- pragma foreign_proc(2305,75208
+to_bool_det(2314,75474
+:- pragma foreign_proc(2316,75524
+to_float(2328,75775
+:- pragma foreign_proc(2330,75819
+to_float_det(2339,76073
+:- pragma foreign_proc(2341,76125
+to_int(2353,76396
+:- pragma foreign_proc(2355,76436
+to_int_det(2366,76704
+:- pragma foreign_proc(2368,76752
+to_string(2381,76997
+:- pragma foreign_proc(2383,77043
+to_string_det(2395,77388
+:- pragma foreign_proc(2397,77442
+to_bool_buffer(2411,77806
+:- pragma foreign_proc(2413,77870
+to_float_buffer(2452,79117
+:- pragma foreign_proc(2454,79183
+to_int_buffer(2490,80275
+:- pragma foreign_proc(2492,80337
+to_string_buffer(2532,81529
+:- pragma foreign_proc(2534,81597
+to_bool_buffer_det(2577,82839
+to_float_buffer_det(2586,83058
+to_int_buffer_det(2595,83283
+to_string_buffer_det(2604,83496
+to_bool_buffer(2613,83725
+to_float_buffer(2614,83792
+to_int_buffer(2615,83859
+to_string_buffer(2616,83926
+to_buffer(2621,84076
+to_buffer_det(2640,84670
+:- pragma foreign_proc(2661,85445
+bool_to_sexp_det(2675,85792
+:- pragma foreign_proc(2682,85920
+float_to_sexp_det(2696,86265
+:- pragma foreign_proc(2703,86395
+int_to_sexp_det(2717,86742
+:- pragma foreign_proc(2724,86868
+string_to_sexp_det(2738,87219
+:- pragma foreign_proc(2747,87432
+bool_buffer_to_sexp_det(2768,88101
+:- pragma foreign_proc(2775,88243
+float_buffer_to_sexp_det(2803,89094
+:- pragma foreign_proc(2810,89238
+int_buffer_to_sexp_det(2831,89828
+:- pragma foreign_proc(2838,89968
+string_buffer_to_sexp_det(2858,90551
+lookup_bool_vect_size(2870,90812
+lookup_int_vect_size(2872,90890
+lookup_float_vect_size(2874,90966
+lookup_string_vect_size(2876,91046
+:- pragma foreign_proc(2880,91157
+lookup_buffer_vect_size(2902,91875
+:- typeclass length(2953,92987
+:- instance length(2959,93153
+:- pragma foreign_proc(2969,93397
+lookup(3039,95223
+:- pragma foreign_proc(3078,96382
+:- pragma foreign_decl(3230,100766
+:- pragma foreign_proc(3244,101171
+:- pragma foreign_code(3290,102899
+apply_to_univ2d(3378,105160
+:- pred univ_to_type_name(3386,105471
+univ_to_type_name(3389,105582
+:- func to_type_name(3393,105737
+:- mode to_type_name(3395,105789
+to_type_name(3397,105833
+:- func apply_to_univ2d_helper(3400,105920
+:- mode apply_to_univ2d_helper(3404,106033
+:- pragma foreign_proc(3408,106136
+apply_to_univ_list_arrays(3479,108740
+:- pred univ_to_type_name_list(3490,109234
+univ_to_type_name_list(3493,109346
+:- func to_type_name_list(3498,109512
+to_type_name_list(3500,109562
+:- pred apply_to_univ_list_arrays_helper(3503,109648
+:- mode apply_to_univ_list_arrays_helper(3507,109781
+:- pragma foreign_decl(3511,109887
+:- pragma foreign_proc(3518,110107
+:- pragma foreign_code(3589,112557
+:- func to_float_base(3610,113182
+to_float_base(3612,113227
+:- pred check_finite(3614,113292
+:- mode check_finite(3616,113392
+check_finite(3619,113482
+marshall_vect_to_list(3658,114602
+:- pred marshall_helper(3668,114843
+marshall_helper(3671,114966
+:- func marshall_vect_to_list(3682,115213
+marshall_vect_to_list(3684,115273
+:- typeclass to_list(3687,115378
+:- instance to_list(3695,115639
+write_rbool(3706,115969
+writeln_rbool(3715,116120
+write_item(3719,116240
+writeln_item(3732,116596
+:- end_module ri3735,116739
+
+test0.m,331
+:- module test119,883
+:- import_module ri22,915
+:- import_module io23,936
+:- import_module bool24,957
+:- pred main(26,981
+:- import_module exception32,1125
+:- import_module float33,1153
+:- import_module int34,1177
+:- import_module list35,1199
+:- import_module require36,1222
+:- import_module string37,1248
+main(53,1914
+
+test1.m,364
+:- module test119,883
+:- import_module io22,915
+:- pred main(24,937
+:- import_module exception30,1081
+:- import_module float31,1109
+:- import_module int32,1133
+:- import_module list33,1155
+:- import_module require34,1178
+:- import_module string35,1204
+:- import_module ri36,1229
+:- import_module bool37,1250
+:- import_module array38,1273
+main(40,1298
