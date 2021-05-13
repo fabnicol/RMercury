@@ -16,6 +16,22 @@
 % this program; if not, write to the Free Software Foundation, Inc., 675 Mass
 % Ave, Cambridge, MA 02139, USA.
 
+%-----------------------------------------------------------------------------%
+%
+% Build command line:
+%
+% rm test1; mmc --search-lib-files-dir $PWD/local/lib/mercury/lib/hlc.gc/ \
+% --init-file $PWD/local/lib/mercury/modules/hlc.gc/ri.init \
+% --link-object $PWD/local/lib/mercury/lib/hlc.gc/libri.a \
+% --ld-flags "-lR -lRblas" --make test1
+%
+%-----------------------------------------------------------------------------%
+%
+% Exec command line:
+% export R_HOME=/usr/lib64/R && LD_LIBRARY_PATH=/usr/lib64/R/lib ./test1
+%
+%-----------------------------------------------------------------------------%
+
 :- module test1.
 :- interface.
 
@@ -68,7 +84,7 @@ main(!IO) :-
     write_string(S6, !IO),nl(!IO),
     source_string_echo("data.table::fread(""a.csv"")[[1]]", Sexp, Res, !IO),
     write_int(Res, !IO),
-    to_bool_buffer(Sexp, BoolBuffer),
+    to_bool_buffer_det(Sexp, BoolBuffer),
     %lookup_bool_vect(BoolBuffer, 2, S10),
     %write_rbool(S10, !IO)
     io.nl(!IO).
@@ -82,15 +98,6 @@ main(!IO) :-
 % write(Exitcode, !IO),
 % end_R(no, no, Exitcode2, !IO),
 
-%% Build command line:
-
-% rm test1; mmc --search-lib-files-dir $PWD/local/lib/mercury/lib/hlc.gc/ \
-% --init-file $PWD/local/lib/mercury/modules/hlc.gc/ri.init \
-% --link-object $PWD/local/lib/mercury/lib/hlc.gc/libri.a \
-% --ld-flags "-lR -lRblas" --make test1
-
-%% Exec command line:
-% export R_HOME=/usr/lib64/R && LD_LIBRARY_PATH=/usr/lib64/R/lib ./test1
 
 %% Test Output:
 %  *** Mercury runtime: caught segmentation violation ***

@@ -50,6 +50,7 @@ It should be built as follows:
                     --init-file local/lib/mercury/modules/hlc.gc/ri.init \
                     --link-object local/lib/mercury/lib/hlc.gc/libri.a \
                     --ld-flags "-lR -lRblas" \
+		    yourfile.m
                                    …
 Change 'hlc.gc' to the appropriate build grade (like possibly 'asm_fast.gc').
 You will need a GC grade (this is unchecked in the build process).

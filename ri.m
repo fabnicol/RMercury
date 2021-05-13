@@ -57,6 +57,7 @@
 %
 %  - building command line should be referenced just before
 %    :- module mypackage.
+%  - execution command line, if relevant, must follow.
 %
 % Predicates, functions and determinism.
 %
@@ -1075,6 +1076,8 @@
 #define NUM_OLD_GENERATIONS 2
 ").
 
+% C enumerations imported into Mercury
+
 :- pragma foreign_enum("C", ri.parse_status/0,
     [
       r_parse_null       - "PARSE_NULL",
@@ -1410,7 +1413,7 @@ if (StringBuffer != NULL) {
 
         for (int i = 0; i < Size; ++i) {
             if (MR_list_is_empty(List)) {
-                MR_String L_i = """";
+                MR_String L_i = (MR_String) """";
             } else {
                 MR_String L_i = (MR_String) MR_list_head(List);
                 List = MR_list_tail(List);
@@ -1711,17 +1714,19 @@ from_string_buffer(Value) = Buffer :- string(Value) = Buffer.
 % This accounts for code patterns that could be optimized out if this were not
 % the case.
 
+% This initialization code chunk must come early.
+
 :- pragma foreign_code("C",
-    "
-    int oldshow;
-    int num_old_gens_to_collect = 0;
-    int R_ShowErrorMessages = 1;
-    ").
+                       "
+int oldshow = 0;
+int num_old_gens_to_collect = 0;
+int R_ShowErrorMessages = 1;
+").
 
 :- pragma foreign_decl("C",
-    "
-    /* For debugging purposes. To limit potential buffer overflow
-    *  consequences in the development period. To be reset to INT_MAX later on.
+"
+/* For debugging purposes. To limit potential buffer overflow
+*  consequences in the development period. To be reset to INT_MAX later on.
 *  Not exported. */
 
 #define R_MR_MAX_VECT_SIZE  10000
