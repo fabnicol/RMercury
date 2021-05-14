@@ -90,11 +90,49 @@ main(!IO) :-
     writeln_rbool(S10, !IO),
     eval("a<-""b""", S11, !IO),
     io.format("this string: %s\n", [s(S11)], !IO),
-    io.nl(!IO).
+    eval("a <- 10000", S11b, !IO),
+    io.format("this int: %d\n", [i(S11b)], !IO),
+    to_sexp_det("This is an example", S12),
+    to_string_det(S12, S13),
+    write_string(S13, !IO),io.nl(!IO),
+    to_sexp_det(33, S14),
+    to_int_det(S14, S15),
+    write_int(S15, !IO),io.nl(!IO),
+    to_sexp_det(34.0, S16),
+    to_float_det(S16, S17),
+    write_float(S17, !IO),io.nl(!IO),
+    to_sexp_det(yes, S18),
+    to_bool_det(S18, S19),
+    write_rbool(S19, !IO),io.nl(!IO),
+    bool_to_sexp_det(not(S19), S20),
+    to_bool_buffer_det(S20, S21),
+    lookup_bool_vect(S21, 0, S22),
+    writeln_rbool(S22, !IO),
+    float_to_sexp_det(56.0, S23),
+    to_float_buffer_det(S23, S24),
+    lookup_float_vect(S24, 0, S25),
+    write_float(S25, !IO),nl(!IO),
+    int_to_sexp_det(842, S26),
+    to_int_buffer_det(S26, S27),
+    lookup_int_vect(S27, 0, S28),
+    write_int(S28, !IO),nl(!IO),
+    string_to_sexp_det("Now again a string!", S29),
+    to_string_buffer_det(S29, S30),
+    lookup_string_vect(S30, 0, S31),
+    write_string(S31, !IO), nl(!IO),
+    to_buffer_det(S29, S29b),
+    write_int(ri.length(S29b), !IO), nl(!IO),
+    ( if is_string_buffer(S29b) then
+      io.format("%s is a string buffer\n", [s(S31)], !IO)
+    else
+         unexpected($pred, "String buffer test failed.")
+    ).
+
+
 
 :- initialise start_R/2.
 
-:- finalise shutdown_R/2. % or end_R/2
+:- finalise shutdown_R/2.  %  or end_R/2
 
 % A = array(["R", "--no-save", "--gui=none", "--silent"]),
 % start_R(no, Exitcode, !IO),

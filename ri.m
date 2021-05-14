@@ -188,11 +188,19 @@
 
 :- type sexp.
 
-:- typeclass length(T).
+%:- typeclass eval_length(T).
+% Using typeclass 'length' for a more polymorphic interface.
+% Later to be expanded with other types than 'buffer'.
+
+:- typeclass eval_length(T) where [         % currently T is only 'buffer'
+    pred length(T, int),
+    mode length(in, out) is det,
+    func length(T) = int
+].
 
     % Currently only implemented for type 'buffer', will be extended later.
 
-:- instance length(buffer).
+:- instance eval_length(buffer).
 
     % Typeclass eval(T, U)
     %
@@ -204,18 +212,18 @@
 
 :- typeclass eval_type(T) where [
 
-    pred eval(string, T, io, io),
+    pred eval(string, T, io, io),        % Tested
     mode eval(in, out, di, uo) is det,
     pred to_sexp(T, sexp),
     mode to_sexp(in, out) is semidet,
-    pred to_sexp_det(T, sexp),
+    pred to_sexp_det(T, sexp),          % Tested
     mode to_sexp_det(in, out) is det
 ].
 
-:- instance eval_type(bool).
-:- instance eval_type(float).
-:- instance eval_type(int).
-:- instance eval_type(string).
+:- instance eval_type(bool).    % Tested
+:- instance eval_type(float).   % Tested
+:- instance eval_type(int).     % Tested
+:- instance eval_type(string).  % Tested
 
 :- typeclass from_buffer(U).
 
@@ -339,7 +347,7 @@
 :- pred is_bool_buffer(buffer::in)   is semidet.
 :- pred is_int_buffer(buffer::in)    is semidet.
 :- pred is_float_buffer(buffer::in)  is semidet.
-:- pred is_string_buffer(buffer::in) is semidet.
+:- pred is_string_buffer(buffer::in) is semidet. % Tested
 
     % <type>_buffer(Buffer, Type_Buffer)
     % <type>_buffer(Buffer) = Type_buffer
@@ -450,10 +458,10 @@
     % Warning: Currently empty R vectors are causing an error when accessed
     % in Mercury. This behavior should be changed.
 
-:- pred lookup_bool_vect(bool_buffer::in, int::in,     bool::out)   is det.
-:- pred lookup_float_vect(float_buffer::in, int::in,   float::out)  is det.
-:- pred lookup_int_vect(int_buffer::in, int::in,       int::out)    is det.
-:- pred lookup_string_vect(string_buffer::in, int::in, string::out) is det.
+:- pred lookup_bool_vect(bool_buffer::in, int::in,     bool::out)   is det. % Tested
+:- pred lookup_float_vect(float_buffer::in, int::in,   float::out)  is det. % Tested
+:- pred lookup_int_vect(int_buffer::in, int::in,       int::out)    is det. % Tested
+:- pred lookup_string_vect(string_buffer::in, int::in, string::out) is det. % Tested
 
     % lookup(Buffer, Index, Buffer_Item)
     %
@@ -470,7 +478,7 @@
 
     % Same as 'write_rbool', followed by newline.
 
-:- pred writeln_rbool(bool::in, io::di, io::uo) is det.
+:- pred writeln_rbool(bool::in, io::di, io::uo) is det. % Tested
 
     % write_ritem(Item, !IO)
     %
@@ -789,7 +797,7 @@
 :- func to_int(sexp)    = int    is semidet. % fails if not int.
 :- func to_string(sexp) = string is semidet. % fails if not string.
 
-:- pred to_bool_det(sexp::in,   bool::out)   is det.  % FALSE if not bool.
+:- pred to_bool_det(sexp::in,   bool::out)   is det.  % FALSE if not bool. % Tested
 :- pred to_float_det(sexp::in,  float::out)  is det.  % 0.0 if not float
 :- pred to_int_det(sexp::in,    int::out)    is det.  % 0 if not int.
 :- pred to_string_det(sexp::in, string::out) is det.  %  "" if not string.
@@ -827,10 +835,10 @@
     % 0     for type = int.
     % ""    for type = string.
 
-:- pred to_bool_buffer_det(sexp::in,     bool_buffer::out)   is det.
-:- pred to_float_buffer_det(sexp::in,    float_buffer::out)  is det.
-:- pred to_int_buffer_det(sexp::in,      int_buffer::out)    is det.
-:- pred to_string_buffer_det(sexp::in,   string_buffer::out) is det.
+:- pred to_bool_buffer_det(sexp::in,     bool_buffer::out)   is det. % Tested
+:- pred to_float_buffer_det(sexp::in,    float_buffer::out)  is det. % Tested
+:- pred to_int_buffer_det(sexp::in,      int_buffer::out)    is det. % Tested
+:- pred to_string_buffer_det(sexp::in,   string_buffer::out) is det. % Tested
 
 :- func to_bool_buffer_det(sexp)   = bool_buffer   is det.
 :- func to_float_buffer_det(sexp)  = float_buffer  is det.
@@ -842,7 +850,7 @@
 :- pred to_buffer(sexp::in, buffer::out) is semidet.
 :- func to_buffer(sexp) = buffer         is semidet.
 
-:- pred to_buffer_det(sexp::in, buffer::out) is det.
+:- pred to_buffer_det(sexp::in, buffer::out) is det. % Tested
 :- func to_buffer_det(sexp) = buffer         is det.
 
     % Built-in type to sexp.
@@ -852,10 +860,10 @@
 :- pred int_to_sexp(int::in,       sexp::out) is semidet.
 :- pred string_to_sexp(string::in, sexp::out) is semidet.
 
-:- pred bool_to_sexp_det(bool::in,     sexp::out) is det.
-:- pred float_to_sexp_det(float::in,   sexp::out) is det.
-:- pred int_to_sexp_det(int::in,       sexp::out) is det.
-:- pred string_to_sexp_det(string::in, sexp::out) is det.
+:- pred bool_to_sexp_det(bool::in,     sexp::out) is det. % Tested
+:- pred float_to_sexp_det(float::in,   sexp::out) is det. % Tested
+:- pred int_to_sexp_det(int::in,       sexp::out) is det. % Tested
+:- pred string_to_sexp_det(string::in, sexp::out) is det. % Tested
 
     % Typed buffer to sexp.
 
@@ -2950,16 +2958,7 @@ lookup_buffer_vect_size(Buffer, Value) :-
 lookup_buffer_vect_size(Buffer) = Value :-
     lookup_buffer_vect_size(Buffer, Value).
 
-    % Using typeclass 'length' for a more polymorphic interface.
-    % Later to be expanded with other types than 'buffer'.
-
-:- typeclass length(T) where [         % currently T is only 'buffer'
-       pred length(T, int),
-       mode length(in, out) is det,
-       func length(T) = int
-].
-
-:- instance length(buffer) where [
+:- instance eval_length(buffer) where [
        pred(length/2) is lookup_buffer_vect_size,
        func(length/1) is lookup_buffer_vect_size
 ].
