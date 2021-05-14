@@ -56,7 +56,7 @@
 main(!IO) :-
     eval_int("a<-8", E, !IO),
     write_int(E, !IO),nl(!IO),
-    eval_bool("a<-FALSE", E1, !IO),
+    eval_bool("a<-FALSE", E1 : bool, !IO),
     writeln_rbool(E1, !IO),
     eval_float("a<-0.2", E2, !IO),
     write_float(E2, !IO),nl(!IO),
@@ -83,10 +83,13 @@ main(!IO) :-
     lookup_string_vect(StringBuffer, 2, S6),
     write_string(S6, !IO),nl(!IO),
     source_string_echo("data.table::fread(""a.csv"")[[1]]", Sexp, Res, !IO),
-    write_int(Res, !IO),
+    write_int(Res, !IO),nl(!IO),
     to_bool_buffer_det(Sexp, BoolBuffer),
-    %lookup_bool_vect(BoolBuffer, 2, S10),
-    %write_rbool(S10, !IO)
+    lookup_bool_vect(BoolBuffer, 2, S10),
+    write("Now bool:", !IO), nl(!IO),
+    writeln_rbool(S10, !IO),
+    eval("a<-""b""", S11, !IO),
+    io.format("this string: %s\n", [s(S11)], !IO),
     io.nl(!IO).
 
 :- initialise start_R/2.

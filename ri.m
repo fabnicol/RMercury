@@ -188,14 +188,6 @@
 
 :- type sexp.
 
-    % Constraints ont type ranges
-
-:- typeclass type_range(T) where [].   % bool, float, int, string
-
-:- typeclass buffer_range(T) where []. % bool_buffer, float_buffer etc.
-
-    % Object length accessor typeclass.
-
 :- typeclass length(T).
 
     % Currently only implemented for type 'buffer', will be extended later.
@@ -210,47 +202,34 @@
     % or lists.
     % Also used to constrain T in other predicates.
 
-:- typeclass eval(T) <= type_range(T) where [
+:- typeclass eval_type(T) where [
 
-    pred eval(string::in, T::out, io::di, io::uo) is cc_multi,
-
-    % Pseudo-cast to sexp
-    %
-
+    pred eval(string, T, io, io),
+    mode eval(in, out, di, uo) is det,
     pred to_sexp(T, sexp),
     mode to_sexp(in, out) is semidet,
     pred to_sexp_det(T, sexp),
     mode to_sexp_det(in, out) is det
 ].
 
-    % The following typeclasses are used to abstract away subsequent predicates
-    % and functions into polymorphic usage.
+:- instance eval_type(bool).
+:- instance eval_type(float).
+:- instance eval_type(int).
+:- instance eval_type(string).
 
-:- typeclass from_buffer(U) <= buffer_range(U) where [
+:- typeclass from_buffer(U).
 
-    pred buffer_to_sexp(U, sexp),
-    mode buffer_to_sexp(in, out) is semidet,
-    pred buffer_to_sexp_det(U, sexp),
-    mode buffer_to_sexp_det(in, out) is det
-].
+:- instance from_buffer(bool_buffer).
+:- instance from_buffer(float_buffer).
+:- instance from_buffer(int_buffer).
+:- instance from_buffer(string_buffer).
 
-:- typeclass to_buffer(T, U) <= (type_range(T), buffer_range(U)) where [
-    % Typed buffer creation
-    %
-    pred create_buffer(T, U),
-    mode create_buffer(in, out) is semidet,
-    pred create_buffer(int, list(T), U),
-    mode create_buffer(in, in, out) is semidet,
-    mode create_buffer(out, out, in) is semidet,
+:- typeclass to_buffer(T, U).
 
-    pred create_buffer_det(T, U),
-    mode create_buffer_det(in, out) is det,
-    pred create_buffer_det(int, list(T), U),
-    mode create_buffer_det(in, in, out) is det,
-
-    func create_buffer(T) = U,
-    func create_buffer(int, list(T)) = U
-].
+:- instance to_buffer(bool,   bool_buffer).
+:- instance to_buffer(float,  float_buffer).
+:- instance to_buffer(int,    int_buffer).
+:- instance to_buffer(string, string_buffer).
 
 %-----------------------------------------------------------------------------%
 %
@@ -724,12 +703,12 @@
     %
 
 :- pred eval_bool(string::in, bool::out, io::di,   io::uo)   is det.
-:- pred eval_float(string::in, float::out, io::di, io::uo)   is cc_multi.
+:- pred eval_float(string::in, float::out, io::di, io::uo)   is det.
 :- pred eval_float(string::in, behavior::in, buffer_item::out,
-    io::di, io::uo) is cc_multi.
+    io::di, io::uo) is det.
 
 :- pred eval_int(string::in, int::out, io::di, io::uo)       is det.
-:- pred eval_string(string::in, string::out, io::di, io::uo) is cc_multi.
+:- pred eval_string(string::in, string::out, io::di, io::uo) is det.
 
 %-----------------------------------------------------------------------------%
 %
@@ -1615,7 +1594,7 @@ for (int i = 0; i < size; ++i) {
     if (Buffer1->contents[i].type == (int8_t) R_MR_STRING)
         Buffer->contents[i] = Buffer1->contents[i].item.s;
     else
-        Buffer->contents[i] = """";
+        Buffer->contents[i] = (MR_String) """";
 }
 ").
 
@@ -2025,37 +2004,59 @@ source_string_echo(Path, !IO) :- source_string_echo(Path, _, !IO).
 % and vector types (dim > 1).
 %
 
+    % The following typeclasses are used to abstract away subsequent predicates
+    % and functions into polymorphic usage.
+
+:- typeclass from_buffer(U) where [
+
+    pred buffer_to_sexp(U, sexp),
+    mode buffer_to_sexp(in, out) is semidet,
+    pred buffer_to_sexp_det(U, sexp),
+    mode buffer_to_sexp_det(in, out) is det
+].
+
+:- typeclass to_buffer(T, U) where [
+    % Typed buffer creation
+    %
+    pred create_buffer(T, U),
+    mode create_buffer(in, out) is semidet,
+    pred create_buffer(int, list(T), U),
+    mode create_buffer(in, in, out) is semidet,
+    mode create_buffer(out, out, in) is semidet,
+
+    pred create_buffer_det(T, U),
+    mode create_buffer_det(in, out) is det,
+    pred create_buffer_det(int, list(T), U),
+    mode create_buffer_det(in, in, out) is det,
+
+    func create_buffer(T) = U,
+    func create_buffer(int, list(T)) = U
+].
+
+% addin: to_<type>_buffer[_det], lookup_<type>_vect
+
 %---- Abstraction typeclass for eval predicates ------------------------------%
 
-:- instance type_range(bool)   where [].
-:- instance type_range(float)  where [].
-:- instance type_range(int)    where [].
-:- instance type_range(string) where [].
 
-:- instance buffer_range(bool_buffer)   where [].
-:- instance buffer_range(float_buffer)  where [].
-:- instance buffer_range(int_buffer)    where [].
-:- instance buffer_range(string_buffer) where [].
-
-:- instance eval(bool) where [
+:- instance eval_type(bool) where [
     pred(eval/4) is eval_bool,
     pred(to_sexp/2) is bool_to_sexp,
     pred(to_sexp_det/2) is bool_to_sexp_det
 ].
 
-:- instance eval(float) where [
+:- instance eval_type(float) where [
     pred(eval/4) is eval_float,
     pred(to_sexp/2) is float_to_sexp,
     pred(to_sexp_det/2) is float_to_sexp_det
 ].
 
-:- instance eval(int) where [
+:- instance eval_type(int) where [
     pred(eval/4) is eval_int,
     pred(to_sexp/2) is int_to_sexp,
     pred(to_sexp_det/2) is int_to_sexp_det
 ].
 
-:- instance eval(string) where [
+:- instance eval_type(string) where [
     pred(eval/4) is eval_string,
     pred(to_sexp/2) is string_to_sexp,
     pred(to_sexp_det/2) is string_to_sexp_det
@@ -2141,11 +2142,7 @@ eval_float(Code, Behavior, Result, !IO) :-
         Result, !IO).
 
 eval_string(Code, Result, !IO) :-
-    (
-        eval_F(Code, to_string_det, Result, !IO)
-    ;
-        Result = ""
-    ).
+    eval_F(Code, to_string_det, Result, !IO).
 
 eval_int(Code, Result, !IO) :-
     eval_F(Code, to_int_det, Result, !IO).
@@ -2157,12 +2154,13 @@ eval_bool(Code, Result, !IO) :-
 
 :- mode eval_F(in, func(in) = out is det, out, di, uo) is det.
 
-eval_F(Code, Func, Out, !IO) :-
-    source_string(Code, E, Errorcode, !IO),
+eval_F(Code, Func, Out, !.IO, !:IO) :-
+    source_string(Code, E, Errorcode, !.IO, !:IO),
     ( if Errorcode = 0 then
         true
     else
-        io.set_exit_status(Errorcode, !IO)
+        io.set_exit_status(Errorcode, !.IO, !:IO),
+        unexpected($pred, "Error: string evaluation failed.")
     ),
     Func(E) = Out.
 
@@ -3619,46 +3617,31 @@ to_float_base(B) = F :- (B = float_base(X) -> F = X ; F = 0.0).
 :- pred check_finite(string, pred(string, buffer_item, io, io), behavior,
     buffer_item, io, io).
 :- mode check_finite(in, pred(in, out, di, uo) is det, in,
-    out, di, uo) is cc_multi.
+    out, di, uo) is det.
 
-check_finite(Code, Predicate, Behavior, Result, !IO) :-
-    ( try [io(!IO)] (
-        Predicate(Code, Ret, !.IO, !:IO)
-    )
-    then
-        F = to_float_base(Ret),
-            ( if
-                is_inf(F)
-            then
-                ( if  Behavior ^ numeric ^ inf = no
-                then
-                    unexpected($pred,
-                        "Returned Infinity yet Infinity is not allowed.")
-                else
-                    Result = Ret
-                )
-            else
-                ( if is_nan(F)
-                then
-                    ( if Behavior ^ numeric ^ nan = no
-                    then
-                        unexpected($pred,
-                            "Returned NAN yet NAN is not allowed.")
-                    else
-                        Result = Ret
-                    )
-                else
-                    Result = Ret
-                )
-            )
-            %%
-            % Here possibly add in other cases
-            %
-    catch_any Excp ->
-            io.format("Returned: EXCP (%s)\n", [s(string(Excp))], !IO),
-            Result = nil_item
-   ).
-
+check_finite(Code, Predicate, Behavior, Result, !.IO, !:IO) :-
+     Predicate(Code, Ret, !.IO, !:IO),
+     F = to_float_base(Ret),
+     ( if is_inf(F) then
+         ( if  Behavior ^ numeric ^ inf = no then
+             unexpected($pred,
+                 "Returned Infinity yet Infinity is not allowed.")
+         else
+             Result = Ret
+         )
+     else
+         ( if is_nan(F) then
+             ( if Behavior ^ numeric ^ nan = no
+             then
+                 unexpected($pred,
+                     "Returned NAN yet NAN is not allowed.")
+             else
+                 Result = Ret
+             )
+         else
+             Result = Ret
+         )
+    ).
 
 marshall_vect_to_list(Start, End, Buffer, L) :-
     S = length(Buffer),
