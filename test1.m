@@ -177,17 +177,22 @@ main(!IO) :-
     buffer_to_sexp_det(S43, S44),
     % to_bool_buffer_det(S44, S45), : OK
     sexp_to_buffer_det(S44, S45),
-    lookup_bool_vect(S45, 0, S45a),
+    % lookup_bool_vect(S45, 0, S45a), : OK
+    lookup(from_bool_buffer(S45), 0, S45a),
     lookup_bool_vect(S45, 1, S45b),
     lookup_bool_vect(S45, 2, S45c),
-    writeln_rbool(S45a, !IO),
+    writeln_item(S45a, !IO),
     writeln_rbool(S45b, !IO),
     writeln_rbool(S45c, !IO),
     apply_to_int("sum", array([1,2,3,4]),yes, S46, !.IO, !:IO) = Errorcode,
     write_int(Errorcode, !IO), nl(!IO),
     write_int(to_int_det(S46), !IO),nl(!IO),
-    apply_to_string("sum", array(["abc", "def"]), yes, _, !.IO, !:IO) = Errorcode2,
-    write_int(Errorcode2, !IO), nl(!IO).
+    apply_to_string("cat", array(["abc", "def"]), yes, _, !.IO, !:IO) = Errorcode2,nl(!IO),
+    % For graphics, there is still to connect to X
+    %apply_to_float("plot", array([0.0,1.0,2.0,3.0,5.5]), no, _, !.IO, !:IO) = _,
+    % same with source
+    source_string("print(sum(1:50))", !IO).
+    %write_int(Errorcode2, !IO), nl(!IO).
 
 
 

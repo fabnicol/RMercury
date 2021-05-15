@@ -406,7 +406,7 @@
     % Reverse of the above functions.
     %
 
-:- func from_bool_buffer(bool_buffer)     = buffer is det.
+:- func from_bool_buffer(bool_buffer)     = buffer is det.  % Tested
 :- func from_int_buffer(int_buffer)       = buffer is det.
 :- func from_float_buffer(float_buffer)   = buffer is det.
 :- func from_string_buffer(string_buffer) = buffer is det.
@@ -495,7 +495,7 @@
     % Same as the above using encapsulating 'buffer' and buffer_item' types.
     % If parsing large data chunks, preferably use the typed versions above.
 
-:- pred lookup(buffer::in, int::in, buffer_item::out) is det.
+:- pred lookup(buffer::in, int::in, buffer_item::out) is det. % Tested (bool)
 
 :- func lookup(buffer, int) = buffer_item.
 
@@ -627,13 +627,14 @@
     %  If Save_on_quit =  0, shuts down R server without saving state.
     %  If Save_on_quit =  1, shuts down R server and save state.
     %  if Save_on_quit = -1, do not shut down R server.
-    %  Silent = yes should suppress IO, so this case could be reimplemented
-    %  without !IO.
+    %  Silent = yes should suppress Error message.
     %  Return result of R execution in Result.
     %  Return the error code of R_tryEval (3rd arg) in Exitcode.
     %  Predicates and functions of lesser arity imply Silent = yes,
     %  unless they are postfixed with '_echo'.
     %  Predicates and functions of lesser arity all imply Save_on_quit = 0.
+    %  Note:
+    %  To trigger IO in R, use 'cat', or 'print', otherwise IO is squashed.
     %  References: Embedding/Rerror.c,Rpostscript.c
     %  src/main/context.c, R_tryEval, R_tryEvalSilent.
 
