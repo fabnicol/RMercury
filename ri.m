@@ -251,15 +251,27 @@
 :- instance to_buffer(int,    int_buffer).
 :- instance to_buffer(string, string_buffer).
 
+:- pred sexp_to_univ_buffer(sexp::in, buffer::out) is semidet.
+:- pred sexp_to_univ_buffer_det(sexp::in, buffer::out) is det.
+
 :- typeclass sexp_to_buffer(U) where [
     pred sexp_to_buffer(sexp::in, U::out) is semidet,
-    pred sexp_to_buffer_det(sexp::in, U::out) is det   % Tested
+    pred sexp_to_buffer_det(sexp::in, U::out) is det         % Tested
 ].
 
 :- instance sexp_to_buffer(bool_buffer).  % Tested
 :- instance sexp_to_buffer(float_buffer). % Tested
 :- instance sexp_to_buffer(int_buffer).   % Tested
 :- instance sexp_to_buffer(string_buffer). % Tested
+
+:- typeclass typed_to_univ_buffer(T) where [
+    func univ_buffer(T) = buffer
+].
+
+:- instance typed_to_univ_buffer(bool_buffer).
+:- instance typed_to_univ_buffer(float_buffer).
+:- instance typed_to_univ_buffer(int_buffer).
+:- instance typed_to_univ_buffer(string_buffer).
 
 %-----------------------------------------------------------------------------%
 %
@@ -2114,6 +2126,41 @@ source_string_echo(Path, !IO) :- source_string_echo(Path, _, !IO).
     pred(buffer_to_sexp_det/2) is string_buffer_to_sexp_det
 ].
 
+sexp_to_univ_buffer(Sexp, Buffer) :-
+    ( if is_bool(Sexp) then
+        to_bool_buffer(Sexp, BoolBuffer),
+        from_bool_buffer(BoolBuffer) = Buffer
+    else if is_float(Sexp) then
+        to_float_buffer(Sexp, FloatBuffer),
+        from_float_buffer(FloatBuffer) = Buffer
+    else if is_int(Sexp) then
+        to_int_buffer(Sexp, IntBuffer),
+        from_int_buffer(IntBuffer) = Buffer
+    else if is_string(Sexp) then
+        to_string_buffer(Sexp, StringBuffer),
+        from_string_buffer(StringBuffer) = Buffer
+    else
+        fail
+    ).
+
+sexp_to_univ_buffer_det(Sexp, Buffer) :-
+    ( if is_bool(Sexp) then
+        to_bool_buffer_det(Sexp, BoolBuffer),
+        from_bool_buffer(BoolBuffer) = Buffer
+    else if is_float(Sexp) then
+        to_float_buffer_det(Sexp, FloatBuffer),
+        from_float_buffer(FloatBuffer) = Buffer
+    else if is_int(Sexp) then
+        to_int_buffer_det(Sexp, IntBuffer),
+        from_int_buffer(IntBuffer) = Buffer
+    else if is_string(Sexp) then
+        to_string_buffer_det(Sexp, StringBuffer),
+        from_string_buffer(StringBuffer) = Buffer
+    else
+        unexpected($pred,
+            "Error: Supported types are: bool, float, int, string")
+    ).
+
 :- instance sexp_to_buffer(bool_buffer) where [
     pred(sexp_to_buffer/2) is to_bool_buffer,
     pred(sexp_to_buffer_det/2) is to_bool_buffer_det
@@ -2176,6 +2223,22 @@ source_string_echo(Path, !IO) :- source_string_echo(Path, _, !IO).
 
     pred(create_buffer_det/2) is create_string_buffer_det,
     pred(create_buffer_det/3) is create_string_buffer_det
+].
+
+:- instance typed_to_univ_buffer(bool_buffer) where [
+    func(univ_buffer/1) is from_bool_buffer
+].
+
+:- instance typed_to_univ_buffer(float_buffer) where [
+    func(univ_buffer/1) is from_float_buffer
+].
+
+:- instance typed_to_univ_buffer(int_buffer) where [
+    func(univ_buffer/1) is from_int_buffer
+].
+
+:- instance typed_to_univ_buffer(string_buffer) where [
+    func(univ_buffer/1) is from_string_buffer
 ].
 
 %---- Sourcing into scalars --------------------------------------------------%
