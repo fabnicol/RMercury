@@ -75,6 +75,13 @@
 %     --make libri
 %-----------------------------------------------------------------------------%
 
+%-----------------------------------------------------------------------------%
+%
+% TODO: - make naming patterns more uniform
+%       - fix error messages not being silenced by Silent = yes.
+%
+%-----------------------------------------------------------------------------%
+
 :- module ri.
 :- interface.
 
@@ -188,7 +195,6 @@
 
 :- type sexp.
 
-%:- typeclass eval_length(T).
 % Using typeclass 'length' for a more polymorphic interface.
 % Later to be expanded with other types than 'buffer'.
 
@@ -200,7 +206,7 @@
 
     % Currently only implemented for type 'buffer', will be extended later.
 
-:- instance eval_length(buffer).
+:- instance eval_length(buffer).   % Tested
 
     % Typeclass eval(T, U)
     %
@@ -225,12 +231,18 @@
 :- instance eval_type(int).     % Tested
 :- instance eval_type(string).  % Tested
 
-:- typeclass from_buffer(U).
+:- typeclass from_buffer(U) where [
 
-:- instance from_buffer(bool_buffer).
-:- instance from_buffer(float_buffer).
-:- instance from_buffer(int_buffer).
-:- instance from_buffer(string_buffer).
+    pred buffer_to_sexp(U, sexp),
+    mode buffer_to_sexp(in, out) is semidet,
+    pred buffer_to_sexp_det(U, sexp),            % Tested
+    mode buffer_to_sexp_det(in, out) is det
+].
+
+:- instance from_buffer(bool_buffer).   % Tested
+:- instance from_buffer(float_buffer).  % Tested
+:- instance from_buffer(int_buffer).    % Tested
+:- instance from_buffer(string_buffer). % Tested
 
 :- typeclass to_buffer(T, U).
 
@@ -238,6 +250,16 @@
 :- instance to_buffer(float,  float_buffer).
 :- instance to_buffer(int,    int_buffer).
 :- instance to_buffer(string, string_buffer).
+
+:- typeclass sexp_to_buffer(U) where [
+    pred sexp_to_buffer(sexp::in, U::out) is semidet,
+    pred sexp_to_buffer_det(sexp::in, U::out) is det   % Tested
+].
+
+:- instance sexp_to_buffer(bool_buffer).  % Tested
+:- instance sexp_to_buffer(float_buffer). % Tested
+:- instance sexp_to_buffer(int_buffer).   % Tested
+:- instance sexp_to_buffer(string_buffer). % Tested
 
 %-----------------------------------------------------------------------------%
 %
@@ -275,13 +297,13 @@
 :- pred create_bool_buffer_det(bool::in, bool_buffer::out)   is det.
 :- func create_bool_buffer_det(bool) = bool_buffer.
 
-:- pred create_float_buffer_det(float::in,   float_buffer::out)  is det.
+:- pred create_float_buffer_det(float::in,   float_buffer::out)  is det. % Tested
 :- func create_float_buffer_det(float) = float_buffer.
 
 :- pred create_int_buffer_det(int::in,   int_buffer::out)  is det.
 :- func create_int_buffer_det(int) = int_buffer.
 
-:- pred create_string_buffer_det(string::in,   string_buffer::out)  is det.
+:- pred create_string_buffer_det(string::in,   string_buffer::out)  is det. % Tested
 :- func create_string_buffer_det(string) = string_buffer.
 
     % create_<type>_buffer(Size, List, Buffer)
@@ -463,12 +485,19 @@
 :- pred lookup_int_vect(int_buffer::in, int::in,       int::out)    is det. % Tested
 :- pred lookup_string_vect(string_buffer::in, int::in, string::out) is det. % Tested
 
+:- func lookup_bool_vect(bool_buffer, int) =  bool.      % Tested
+:- func lookup_float_vect(float_buffer, int) = float.    % Tested
+:- func lookup_int_vect(int_buffer, int) =  int.         % Tested
+:- func lookup_string_vect(string_buffer, int) = string. % Tested
+
     % lookup(Buffer, Index, Buffer_Item)
     %
     % Same as the above using encapsulating 'buffer' and buffer_item' types.
     % If parsing large data chunks, preferably use the typed versions above.
 
 :- pred lookup(buffer::in, int::in, buffer_item::out) is det.
+
+:- func lookup(buffer, int) = buffer_item.
 
     % write_bool(Bool, !IO)
     %
@@ -805,7 +834,7 @@
 :- func to_bool_det(sexp)   = bool.   % returns FALSE if not bool.
 :- func to_float_det(sexp)  = float.  % returns 0.0 if not float
 :- func to_int_det(sexp)    = int.    % returns 0 if not int.
-:- func to_string_det(sexp) = string. % returns "" if not string.
+:- func to_string_det(sexp) = string. % returns "" if not string.          % Tested
 
     % Sexp to typed buffer.
 
@@ -872,10 +901,10 @@
 :- pred int_buffer_to_sexp(int_buffer::in,       sexp::out) is semidet.
 :- pred string_buffer_to_sexp(string_buffer::in, sexp::out) is semidet.
 
-:- pred bool_buffer_to_sexp_det(bool_buffer::in,     sexp::out) is det.
-:- pred float_buffer_to_sexp_det(float_buffer::in,   sexp::out) is det.
-:- pred int_buffer_to_sexp_det(int_buffer::in,       sexp::out) is det.
-:- pred string_buffer_to_sexp_det(string_buffer::in, sexp::out) is det.
+:- pred bool_buffer_to_sexp_det(bool_buffer::in,     sexp::out) is det. % Tested
+:- pred float_buffer_to_sexp_det(float_buffer::in,   sexp::out) is det. % Tested
+:- pred int_buffer_to_sexp_det(int_buffer::in,       sexp::out) is det. % Tested
+:- pred string_buffer_to_sexp_det(string_buffer::in, sexp::out) is det. % Tested
 
 %-----------------------------------------------------------------------------%
 %
@@ -915,7 +944,7 @@
     %  Apply R Function to integral vector Arg into an S expression Result.
     %  Reference: R API, Embedding/RParseEval.c, embeddedRCall.c
 
-:- func apply_to_int(string, array(int), bool, sexp, io, io) = int.
+:- func apply_to_int(string, array(int), bool, sexp, io, io) = int.  % Tested
 :- mode apply_to_int(in, array_di, in, out, di, uo) = out is det.
 
     %  apply_to_string(Function, Arg, Silent, Status, Result, !IO)
@@ -924,7 +953,7 @@
     %  Apply R Function to string vector Arg into an S expression Result.
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
 
-:- func apply_to_string(string, array(string), bool, sexp, io, io) = int.
+:- func apply_to_string(string, array(string), bool, sexp, io, io) = int.  % Tested
 :- mode apply_to_string(in, array_di, in, out, di, uo) = out is det.
 
 %-----------------------------------------------------------------------------%
@@ -1396,16 +1425,17 @@ if (StringBuffer != NULL) {
     StringBuffer->size = Size;
     StringBuffer->contents = MR_GC_malloc(sizeof(MR_String) * Size);
     if (StringBuffer->contents != NULL) {
-    SUCCESS_INDICATOR = TRUE;
-
+        SUCCESS_INDICATOR = TRUE;
+        MR_String L_i;
         for (int i = 0; i < Size; ++i) {
             if (MR_list_is_empty(List)) {
-                MR_String L_i = (MR_String) """";
+                L_i = (MR_String) MR_GC_NEW_ARRAY(char, 1);
+                L_i[0] = 0;
             } else {
-                MR_String L_i = (MR_String) MR_list_head(List);
+                L_i = (MR_String) MR_list_head(List);
                 List = MR_list_tail(List);
-                StringBuffer->contents[i] = L_i;
             }
+            StringBuffer->contents[i] = L_i;
         }
 
     } else SUCCESS_INDICATOR = FALSE;
@@ -2015,13 +2045,6 @@ source_string_echo(Path, !IO) :- source_string_echo(Path, _, !IO).
     % The following typeclasses are used to abstract away subsequent predicates
     % and functions into polymorphic usage.
 
-:- typeclass from_buffer(U) where [
-
-    pred buffer_to_sexp(U, sexp),
-    mode buffer_to_sexp(in, out) is semidet,
-    pred buffer_to_sexp_det(U, sexp),
-    mode buffer_to_sexp_det(in, out) is det
-].
 
 :- typeclass to_buffer(T, U) where [
     % Typed buffer creation
@@ -2088,6 +2111,26 @@ source_string_echo(Path, !IO) :- source_string_echo(Path, _, !IO).
 :- instance from_buffer(string_buffer) where [
     pred(buffer_to_sexp/2) is string_buffer_to_sexp,
     pred(buffer_to_sexp_det/2) is string_buffer_to_sexp_det
+].
+
+:- instance sexp_to_buffer(bool_buffer) where [
+    pred(sexp_to_buffer/2) is to_bool_buffer,
+    pred(sexp_to_buffer_det/2) is to_bool_buffer_det
+].
+
+:- instance sexp_to_buffer(float_buffer) where [
+    pred(sexp_to_buffer/2) is to_float_buffer,
+    pred(sexp_to_buffer_det/2) is to_float_buffer_det
+].
+
+:- instance sexp_to_buffer(int_buffer) where [
+    pred(sexp_to_buffer/2) is to_int_buffer,
+    pred(sexp_to_buffer_det/2) is to_int_buffer_det
+].
+
+:- instance sexp_to_buffer(string_buffer) where [
+    pred(sexp_to_buffer/2) is to_string_buffer,
+    pred(sexp_to_buffer_det/2) is to_string_buffer_det
 ].
 
 :- instance to_buffer(int, int_buffer) where [
@@ -2769,7 +2812,6 @@ if (Sexp == NULL) {
 } else {
     errno = 0;
     Rboolean *p = (Rboolean*) LOGICAL(Sexp);  /* Rboolean <-> int, no memcpy */
-    // memcpy(p, contents, size);
     for (int i = 0; i < size; ++i) p[i] = (int) contents[i];
     SUCCESS_INDICATOR = errno ? FALSE : TRUE;
     errno = 0;
@@ -2790,22 +2832,17 @@ bool_buffer_to_sexp_det(Value, Sexp) :-
 FLOAT_BUFFER *value = (FLOAT_BUFFER*) Value;
 int size = (int) value->size;
 MR_Float *contents = (MR_Float*) value->contents;
-/* ISSUE here.
-   With 64-platforms this should be OK.
-   With other platforms, where sizeof(MR_Float) != sizeof(MR_Word)
-   the MR_word_to_float/float_to_word macros should be used yet
-   I do not see how. This reminder is a note. */
-
 PROTECT(Sexp = Rf_allocVector(REALSXP, size));
 if (Sexp == NULL) {
     SUCCESS_INDICATOR = FALSE;
 } else {
     errno = 0;
     double *p = REAL(Sexp);
+    /* memcpy will not work */
 
-    /* memcpy should work for 64-bit platforms, not necessarily for others.*/
+    for (int i = 0; i < size; ++i)
+        p[i] = (double) contents[i];
 
-    memcpy(p, Value->contents, Value->size);
     SUCCESS_INDICATOR = errno ? FALSE : TRUE;
     errno = 0;
 }
@@ -2825,16 +2862,17 @@ float_buffer_to_sexp_det(Value, Sexp) :-
 INT_BUFFER *value = (INT_BUFFER*) Value;
 int size = (int) value->size;
 MR_Integer *contents = (MR_Integer*) value->contents;
-
-PROTECT(Sexp = Rf_allocVector(INTSXP, 1));
+PROTECT(Sexp = Rf_allocVector(INTSXP, size));
 if (Sexp == NULL) {
     SUCCESS_INDICATOR = FALSE;
 } else {
     errno = 0;
     int *p = INTEGER(Sexp);
-    /* This should be OK.
-       Unless mistake, sizeof(MR_Word) = sizeof(MR_Integer) */
-    memcpy(p, contents, size);
+    /* memcpy will not work */
+
+    for (int i = 0; i < size; ++i)
+        p[i] = (int) contents[i];
+
     SUCCESS_INDICATOR = errno ? FALSE : TRUE;
 }
 ").
@@ -2854,14 +2892,14 @@ STRING_BUFFER *value = (STRING_BUFFER*) Value;
 int size = (int) value->size;
 MR_String *contents = (MR_String*) value->contents;
 
-PROTECT(Sexp = Rf_allocVector(STRSXP, 1));
+PROTECT(Sexp = Rf_allocVector(STRSXP, size));
 if (Sexp == NULL) {
     SUCCESS_INDICATOR = FALSE;
 } else {
     errno = 0;
     SUCCESS_INDICATOR = TRUE;
     for (int j = 0; j < size; ++j)
-    SET_STRING_ELT(Sexp, j, Rf_mkString((const char*) contents[j]));
+        SET_STRING_ELT(Sexp, j, Rf_mkChar((const char*) contents[j]));
     SUCCESS_INDICATOR = errno ? FALSE : TRUE;
 }
 ").
@@ -3068,6 +3106,20 @@ lookup(Buffer, Index, Item) :-
         Item = string_base("")
     ).
 
+lookup_bool_vect(Buffer, Index) = Value :-
+    lookup_bool_vect(Buffer, Index, Value).
+
+lookup_float_vect(Buffer, Index) = Value :-
+    lookup_float_vect(Buffer, Index, Value).
+
+lookup_int_vect(Buffer, Index) = Value :-
+    lookup_int_vect(Buffer, Index, Value).
+
+lookup_string_vect(Buffer, Index) = Value :-
+    lookup_string_vect(Buffer, Index, Value).
+
+lookup(Buffer, Index) = Value :- lookup(Buffer, Index, Value).
+
 %-----------------------------------------------------------------------------%
 %
 % Sourcing R functions
@@ -3211,7 +3263,7 @@ if (size == 0) {
 
     PROTECT(arg = allocVector(STRSXP, size));
     for (int i = 0; i < size; ++i)
-        SET_STRING_ELT(arg, i, Rf_mkString((const char*) elements[i]));
+        SET_STRING_ELT(arg, i, Rf_mkChar((const char*) elements[i]));
 
     PROTECT(tmp = lang2(install(Function), arg));
     int exitcode = 0;
@@ -3370,7 +3422,7 @@ R_MR_APPLY_HELPER_STRING(MR_ArrayPtr array, MR_Integer nrows,
 {
     for (int j = 0; j < nrows; ++j)
         SET_STRING_ELT(vect, j,
-            Rf_mkString((MR_String) array->elements[index + j]));
+            Rf_mkChar((const char*) array->elements[index + j]));
 }
 ").
 

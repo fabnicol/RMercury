@@ -126,7 +126,69 @@ main(!IO) :-
       io.format("%s is a string buffer\n", [s(S31)], !IO)
     else
          unexpected($pred, "String buffer test failed.")
-    ).
+    ),
+    buffer_to_sexp_det(S30, S32),
+    write_string(to_string_det(S32), !IO), nl(!IO),
+    buffer_to_sexp_det(S21, S33),
+    write_rbool(to_bool_det(S33), !IO), nl(!IO),
+    create_float_buffer_det(3, [2.0,1.0], S34),
+    write_float(lookup_float_vect(S34, 0), !IO),nl(!IO),
+    write_float(lookup_float_vect(S34, 1), !IO),nl(!IO),
+    write_float(lookup_float_vect(S34, 2), !IO),nl(!IO),
+    buffer_to_sexp_det(S34, S35),
+    % to_float_buffer_det(S35, S36), : OK
+    sexp_to_buffer_det(S35, S36),
+    lookup_float_vect(S36, 0, S36a),
+    lookup_float_vect(S36, 1, S36b),
+    lookup_float_vect(S36, 2, S36c),
+    write_float(S36a, !IO), nl(!IO),
+    write_float(S36b, !IO), nl(!IO),
+    write_float(S36c, !IO), nl(!IO),
+    create_string_buffer_det(3, ["abc","def"], S37),
+    write_string(lookup_string_vect(S37, 0), !IO),nl(!IO),
+    write_string(lookup_string_vect(S37, 1), !IO),nl(!IO),
+    write_string(lookup_string_vect(S37, 2), !IO),nl(!IO),
+    buffer_to_sexp_det(S37, S38),
+    % to_string_buffer_det(S38, S39), : OK
+    sexp_to_buffer_det(S38, S39),
+    lookup_string_vect(S39, 0, S39a),
+    lookup_string_vect(S39, 1, S39b),
+    lookup_string_vect(S39, 2, S39c),
+    write_string(S39a, !IO), nl(!IO),
+    write_string(S39b, !IO), nl(!IO),
+    write_string(S39c, !IO), nl(!IO),
+    create_int_buffer_det(3, [10,20], S40),
+    write_int(lookup_int_vect(S40, 0), !IO),nl(!IO),
+    write_int(lookup_int_vect(S40, 1), !IO),nl(!IO),
+    write_int(lookup_int_vect(S40, 2), !IO),nl(!IO),
+    buffer_to_sexp_det(S40, S41),
+    % to_int_buffer_det(S41, S42), : OK
+    sexp_to_buffer_det(S41, S42),
+    lookup_int_vect(S42, 0, S42a),
+    lookup_int_vect(S42, 1, S42b),
+    lookup_int_vect(S42, 2, S42c),
+    write_int(S42a, !IO), nl(!IO),
+    write_int(S42b, !IO), nl(!IO),
+    write_int(S42c, !IO), nl(!IO),
+    create_bool_buffer_det(3, [yes,no], S43),
+    writeln_rbool(lookup_bool_vect(S43, 0), !IO),
+    writeln_rbool(lookup_bool_vect(S43, 1), !IO),
+    writeln_rbool(lookup_bool_vect(S43, 2), !IO),
+    buffer_to_sexp_det(S43, S44),
+    % to_bool_buffer_det(S44, S45), : OK
+    sexp_to_buffer_det(S44, S45),
+    lookup_bool_vect(S45, 0, S45a),
+    lookup_bool_vect(S45, 1, S45b),
+    lookup_bool_vect(S45, 2, S45c),
+    writeln_rbool(S45a, !IO),
+    writeln_rbool(S45b, !IO),
+    writeln_rbool(S45c, !IO),
+    apply_to_int("sum", array([1,2,3,4]),yes, S46, !.IO, !:IO) = Errorcode,
+    write_int(Errorcode, !IO), nl(!IO),
+    write_int(to_int_det(S46), !IO),nl(!IO),
+    apply_to_string("sum", array(["abc", "def"]), yes, _, !.IO, !:IO) = Errorcode2,
+    write_int(Errorcode2, !IO), nl(!IO).
+
 
 
 
