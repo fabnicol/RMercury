@@ -252,7 +252,7 @@
 :- instance to_buffer(string, string_buffer).
 
 :- pred sexp_to_univ_buffer(sexp::in, buffer::out) is semidet.
-:- pred sexp_to_univ_buffer_det(sexp::in, buffer::out) is det.
+:- pred sexp_to_univ_buffer_det(sexp::in, buffer::out) is det.  % Tested
 
 :- typeclass sexp_to_buffer(U) where [
     pred sexp_to_buffer(sexp::in, U::out) is semidet,
@@ -822,10 +822,10 @@
 
 :- pred get_sexp_type(sexp::in, type_desc::out) is semidet.
 
-:- pred is_bool(sexp::in)   is semidet.
-:- pred is_float(sexp::in)  is semidet.
-:- pred is_int(sexp::in)    is semidet.
-:- pred is_string(sexp::in) is semidet.
+:- pred is_bool(sexp::in)   is semidet.   % Tested
+:- pred is_float(sexp::in)  is semidet.   % Tested
+:- pred is_int(sexp::in)    is semidet.   % Tested
+:- pred is_string(sexp::in) is semidet.   % Tested
 
     % Sexp to built-in type.
 
@@ -937,8 +937,21 @@
     %  Apply R Function to logical vector Arg into an S expression Result.
     %  Reference: R API, Embedding/RParseEval.c, embeddedRCall.c
 
-:- func apply_to_bool(string, array(bool), bool, sexp, io, io) = int.
-:- mode apply_to_bool(in, array_di, in, out, di, uo) = out is det.
+:- pred apply_to_bool_array(string, array(bool), bool, sexp, int, io, io).  % Tested
+:- mode apply_to_bool_array(in, array_di, in, out, out, di, uo) is det.
+:- func apply_to_bool_array(string, array(bool), bool, sexp, io, io) = int. % Tested
+:- mode apply_to_bool_array(in, array_di, in, out, di, uo) = out is det.
+
+    %  apply_to_bool(Function, Arg, Silent, Result, !IO)
+    %      = Exitcode
+    %
+    %  Apply R Function to logical Arg into an S expression Result.
+    %  Reference: R API, Embedding/RParseEval.c, embeddedRCall.c
+
+:- pred apply_to_bool(string, bool, bool, sexp, int, io, io).   % Tested
+:- mode apply_to_bool(in, in, in, out, out, di, uo) is det.
+:- func apply_to_bool(string, bool, bool, sexp, io, io) = int.  % Tested
+:- mode apply_to_bool(in, in, in, out, di, uo) = out is det.
 
     %  apply_to_float(Function, Arg, Silent, Result, !IO)
     %     = Exitcode
@@ -948,26 +961,66 @@
     %  is actually a double in most cases.
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
 
-:- func apply_to_float(string, array(float), bool, sexp, io, io) = int.
-:- mode apply_to_float(in, array_di, in, out, di, uo) = out is det.
+:- pred apply_to_float_array(string, array(float), bool, sexp, int, io, io).   % Tested
+:- mode apply_to_float_array(in, array_di, in, out, out, di, uo) is det.
+:- func apply_to_float_array(string, array(float), bool, sexp, io, io) = int.  % Tested
+:- mode apply_to_float_array(in, array_di, in, out, di, uo) = out is det.
 
-    %  apply_to_int(Function, Arg, Silent, Result, !IO)
+    %  apply_to_float(Function, Arg, Silent, Result, !IO)
+    %      = Exitcode
+    %
+    %  Apply R Function to float Arg into an S expression Result.
+    %  Reference: R API, Embedding/RParseEval.c, embeddedRCall.c
+
+:- pred apply_to_float(string, float, bool, sexp, int, io, io). % Tested
+:- mode apply_to_float(in, in, in, out, out, di, uo) is det.
+:- func apply_to_float(string, float, bool, sexp, io, io) = int. % Tested
+:- mode apply_to_float(in, in, in, out, di, uo) = out is det.
+
+
+    %  apply_to_int_array(Function, Arg, Silent, Result, !IO)
     %      = Exitcode
     %
     %  Apply R Function to integral vector Arg into an S expression Result.
     %  Reference: R API, Embedding/RParseEval.c, embeddedRCall.c
 
-:- func apply_to_int(string, array(int), bool, sexp, io, io) = int.  % Tested
-:- mode apply_to_int(in, array_di, in, out, di, uo) = out is det.
+:- pred apply_to_int_array(string, array(int), bool, sexp, int, io, io).  % Tested
+:- mode apply_to_int_array(in, array_di, in, out, out, di, uo) is det.
+:- func apply_to_int_array(string, array(int), bool, sexp, io, io) = int.  % Tested
+:- mode apply_to_int_array(in, array_di, in, out, di, uo) = out is det.
+
+    %  apply_to_int(Function, Arg, Silent, Result, !IO)
+    %      = Exitcode
+    %
+    %  Apply R Function to integer into an S expression Result.
+    %  Reference: R API, Embedding/RParseEval.c, embeddedRCall.c
+
+:- pred apply_to_int(string, int, bool, sexp, int, io, io).   % Tested
+:- mode apply_to_int(in, in, in, out, out, di, uo) is det.
+:- func apply_to_int(string, int, bool, sexp, io, io) = int.  % Tested
+:- mode apply_to_int(in, in, in, out, di, uo) = out is det.
 
     %  apply_to_string(Function, Arg, Silent, Status, Result, !IO)
+    %     = Exitcode
+    %
+    %  Apply R Function to string into an S expression Result.
+    %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
+
+:- pred apply_to_string(string, string, bool, sexp, int, io, io).  % Tested
+:- mode apply_to_string(in, in, in, out, out, di, uo) is det.
+:- func apply_to_string(string, string, bool, sexp, io, io) = int.  % Tested
+:- mode apply_to_string(in, in, in, out, di, uo) = out is det.
+
+    %  apply_to_string_array(Function, Arg, Silent, Status, Result, !IO)
     %     = Exitcode
     %
     %  Apply R Function to string vector Arg into an S expression Result.
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
 
-:- func apply_to_string(string, array(string), bool, sexp, io, io) = int.  % Tested
-:- mode apply_to_string(in, array_di, in, out, di, uo) = out is det.
+:- pred apply_to_string_array(string, array(string), bool, sexp, int, io, io).  % Tested
+:- mode apply_to_string_array(in, array_di, in, out, out, di, uo) is det.
+:- func apply_to_string_array(string, array(string), bool, sexp, io, io) = int.  % Tested
+:- mode apply_to_string_array(in, array_di, in, out, di, uo) = out is det.
 
 %-----------------------------------------------------------------------------%
 %
@@ -3194,7 +3247,7 @@ lookup(Buffer, Index) = Value :- lookup(Buffer, Index, Value).
 %  Apply R Function to logical vector Arg into an S expression Result.
 
 :- pragma foreign_proc("C",
-    apply_to_bool(Function::in, Array::array_di, Silent::in,
+    apply_to_bool_array(Function::in, Array::array_di, Silent::in,
         Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
@@ -3224,10 +3277,34 @@ if (size == 0) {
 RESTORE_VERBOSITY;
 ").
 
+apply_to_bool_array(Function, Bools, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    apply_to_bool_array(Function, Bools, Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+:- pragma foreign_proc("C",
+    apply_to_bool(Function::in, Bool::in, Silent::in,
+                   Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
+    [promise_pure, will_not_call_mercury, tabled_for_io,
+     does_not_affect_liveness],
+"
+SEXP arg = Rf_ScalarLogical(Bool);
+SEXP tmp;
+SET_SILENT(Silent);
+
+PROTECT(tmp = lang2(install(Function), arg));
+int exitcode = 0;
+Sexp = R_tryEval(tmp, R_GlobalEnv, &exitcode);
+Exitcode = exitcode;
+
+RESTORE_VERBOSITY;
+").
+
+apply_to_bool(Function, Bool, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    apply_to_bool(Function, Bool, Silent, Sexp, !.IO, !:IO) = Errorcode.
+
 %  Apply R Function to numeric vector Arg into an S expression Result.
 
 :- pragma foreign_proc("C",
-    apply_to_float(Function::in, Array::array_di, Silent::in,
+    apply_to_float_array(Function::in, Array::array_di, Silent::in,
         Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
@@ -3235,15 +3312,6 @@ RESTORE_VERBOSITY;
 MR_ArrayPtr array = (MR_ArrayPtr) Array;
 int size = array->size;
 MR_Float *elements = (MR_Float*) array->elements;
-
-/*  Here again caveat: works only iff:
-    sizeof(MR_Word) = sizeof(MR_Float) = sizeof(double).
-    Otherwise:
-    MR_Word *elements__ = (MR_Word*) array->elements;
-    doubme elements[size];
-    for (int i = 0; i < size; ++i)
-        elements[i] = MR_word_to_float(elements__[i]);  */
-
 if (size == 0) {
      Exitcode = R_MR_NULL_ARGS;
      Sexp = NULL;
@@ -3254,7 +3322,8 @@ if (size == 0) {
 
      PROTECT(arg = allocVector(REALSXP, size));
      double *V = REAL(arg);
-     memcpy(V, elements, size); /* Here it is OK to use memcpy */
+     for (int i = 0; i < size; ++i)
+         V[i] = (double) elements[i];
 
      PROTECT(tmp = lang2(install(Function), arg));
      int exitcode = 0;
@@ -3265,10 +3334,32 @@ if (size == 0) {
 RESTORE_VERBOSITY;
 ").
 
-%  Apply R Function to integer vector Arg into an S expression Result.
+apply_to_float_array(Function, Floats, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    apply_to_float_array(Function, Floats, Silent, Sexp, !.IO, !:IO) = Errorcode.
 
 :- pragma foreign_proc("C",
-    apply_to_int(Function::in, Array::array_di, Silent::in,
+    apply_to_float(Function::in, Float::in, Silent::in,
+                 Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
+    [promise_pure, will_not_call_mercury, tabled_for_io,
+     does_not_affect_liveness],
+"
+SEXP arg = Rf_ScalarReal(Float);
+SEXP tmp;
+SET_SILENT(Silent);
+
+PROTECT(tmp = lang2(install(Function), arg));
+int exitcode = 0;
+Sexp = R_tryEval(tmp, R_GlobalEnv, &exitcode);
+Exitcode = exitcode;
+
+RESTORE_VERBOSITY;
+").
+
+apply_to_float(Function, Float, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    apply_to_float(Function, Float, Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+:- pragma foreign_proc("C",
+    apply_to_int_array(Function::in, Array::array_di, Silent::in,
         Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
@@ -3303,10 +3394,34 @@ if (size == 0) {
 RESTORE_VERBOSITY;
 ").
 
+apply_to_int_array(Function, Int, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    apply_to_int_array(Function, Int, Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+:- pragma foreign_proc("C",
+    apply_to_int(Function::in, Int::in, Silent::in,
+       Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
+    [promise_pure, will_not_call_mercury, tabled_for_io,
+     does_not_affect_liveness],
+"
+SEXP arg = Rf_ScalarInteger(Int);
+SEXP tmp;
+SET_SILENT(Silent);
+
+PROTECT(tmp = lang2(install(Function), arg));
+int exitcode = 0;
+Sexp = R_tryEval(tmp, R_GlobalEnv, &exitcode);
+Exitcode = exitcode;
+
+RESTORE_VERBOSITY;
+").
+
+apply_to_int(Function, Int, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    apply_to_int(Function, Int, Silent, Sexp, !.IO, !:IO) = Errorcode.
+
 %  Apply R Function to string vector Arg into an S expression Result.
 
 :- pragma foreign_proc("C",
-    apply_to_string(Function::in, Array::array_di, Silent::in,
+    apply_to_string_array(Function::in, Array::array_di, Silent::in,
         Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
@@ -3337,6 +3452,33 @@ if (size == 0) {
 
 RESTORE_VERBOSITY;
 ").
+
+apply_to_string(Code, String, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    apply_to_string(Code, String, Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+%  Apply R Function to string vector Arg into an S expression Result.
+
+:- pragma foreign_proc("C",
+    apply_to_string(Function::in, String::in, Silent::in,
+       Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
+    [promise_pure, will_not_call_mercury, tabled_for_io,
+     does_not_affect_liveness],
+"
+SET_SILENT(Silent);
+
+SEXP arg = mkString((const char*) String);
+SEXP tmp;
+
+PROTECT(tmp = lang2(install(Function), arg));
+int exitcode = 0;
+Sexp = R_tryEval(tmp, R_GlobalEnv, &exitcode);
+Exitcode = exitcode;
+
+RESTORE_VERBOSITY;
+").
+
+apply_to_string_array(Code, Strings, Silent, Sexp, Errorcode, !IO) :-
+    apply_to_string_array(Code, Strings, Silent, Sexp, !.IO, !:IO) = Errorcode.
 
 %---- Apply R Function to R data frame Arg into an S expression --------------%
 

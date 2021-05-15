@@ -187,16 +187,27 @@ main(!IO) :-
     writeln_item(S45a, !IO),
     writeln_item(S45b, !IO),
     writeln_item(S45c, !IO),
-    apply_to_int("sum", array([1,2,3,4]),yes, S46, !.IO, !:IO) = Errorcode,
+    apply_to_int_array("sum", array([1,2,3,4]),yes, S46, !.IO, !:IO) = Errorcode,
     write_int(Errorcode, !IO), nl(!IO),
     write_int(to_int_det(S46), !IO),nl(!IO),
-    apply_to_string("cat", array(["abc", "def"]), yes, _, !.IO, !:IO) = Errorcode2,nl(!IO),
+
+    apply_to_string_array("cat", array(["abc", "def"]), yes, _, _, !.IO, !:IO),nl(!IO),
+    apply_to_bool_array("print", array([yes, no]), yes, _, _, !.IO, !:IO),
+    apply_to_float_array("print", array([1.15, 3.2]), yes, _, _, !.IO, !:IO),
+    apply_to_int_array("print", array([1, 2]), yes, _, _, !.IO, !:IO),
+
+    apply_to_string("cat", "abc", yes, _, _, !.IO, !:IO),nl(!IO),
+    apply_to_bool("print", yes, yes,  _, _, !.IO, !:IO),
+    apply_to_float("print",1.15, yes, _, _, !.IO, !:IO),
+    apply_to_int("print", 1, yes, _, _, !.IO, !:IO),
+
     % For graphics, there is still to connect to X
     %apply_to_float("plot", array([0.0,1.0,2.0,3.0,5.5]), no, _, !.IO, !:IO) = _,
     % same with source
-    source_string("print(sum(1:50))", !IO).
-    %write_int(Errorcode2, !IO), nl(!IO).
+    source_string("print(sum(1:50))", !IO),
+    apply_to_string("cat", "abc", yes, _, !.IO, !:IO) = _.
 
+    % write_int(Errorcode2, !IO), nl(!IO).
 
 
 
