@@ -1107,9 +1107,26 @@
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
 
 :- pred apply_to_sexp(string, sexp, bool, sexp, int, io, io).      % Tested
-:- mode apply_to_sexp(in, array_di, in, out, out, di, uo) is det.
+:- mode apply_to_sexp(in, in, in, out, out, di, uo) is det.
 :- func apply_to_sexp(string, sexp, bool, sexp, io, io) = int.     % Tested
 :- mode apply_to_sexp(in, in, in, out, di, uo) = out is det.
+
+    %  compose_to_sexp(Functions, Sexp, Silent, Result, !IO)
+    %     = Errorcode
+    %  compose_to_sexp(Functions, Sexp, Silent, Result, Errorcode, !IO)
+    %
+    %  Compose R list of Functions to an S expression
+    %  into an S expression Result. Errorcode is the sum of successive
+    %  error code output by successive application of each function.
+    %  Example:
+    %  compose_to_sexp(["print", "sum", "unlist"], S0, yes, S1, Err, !IO)
+    %  % R: S1 <- print(sum(unlist(S0)))
+    %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
+
+:- pred compose_to_sexp(list(string), sexp, bool, sexp, int, io, io).      % Tested
+:- mode compose_to_sexp(in, in, in, out, out, di, uo) is det.
+g:- func compose_to_sexp(list(string), sexp, bool, sexp, io, io) = int.     % Tested
+:- mode compose_to_sexp(in, in, in, out, di, uo) = out is det.
 
     %  apply_to_univ2d(Function, Args, Silent, Result, !IO) = Exitcode
     %
@@ -3787,8 +3804,31 @@ apply_to_string2d(Function, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
 
 
 apply_to_sexp(Function, SexpIn, Silent, SexpOut, Errorcode, !.IO, !:IO) :-
-    apply_to_sexp(Function, SexpIn, Silent, SexpOut,
-                  !.IO, !:IO) = Errorcode.
+    apply_to_sexp(Function, SexpIn, Silent, SexpOut, !.IO, !:IO) = Errorcode.
+
+compose_to_sexp(Functions, SexpIn, Silent, SexpOut, Errorcode, !.IO, !:IO) :-
+    Functions_ = reverse(Functions),
+    compose_to_sexp2(Functions_, SexpIn, nil_sexp, SexpOut,
+                     Silent, Errorcode, !.IO, !:IO).
+
+% Auxiliary predicate
+
+:- pred compose_to_sexp2(list(string)::in, sexp::in, sexp::in, sexp::out,
+                         bool::in, int::out, io::di, io::uo) is det.
+
+compose_to_sexp2(Functions_, SexpIn, Acc, Out, Silent, Errorcode, !.IO, !:IO) :-
+    (   Functions_ = [],
+        Errorcode = 0,
+        Out = Acc
+    ;
+        Functions_ = [Function | Tail],
+        apply_to_sexp(Function, SexpIn, Silent, SexpOut, Errorcode1, !.IO, !:IO),
+        compose_to_sexp2(Tail, SexpOut, SexpOut, Out, Silent, Errorcode2, !.IO, !:IO),
+        Errorcode = Errorcode1 + Errorcode2
+    ).
+
+compose_to_sexp(Functions, SexpIn, Silent, SexpOut, !.IO, !:IO) = Errorcode:-
+    compose_to_sexp(Functions, SexpIn, Silent, SexpOut, Errorcode, !.IO, !:IO).
 
 :- pragma foreign_proc("C",
     apply_to_sexp(Function::in, SexpIn::in, Silent::in,

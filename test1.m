@@ -216,12 +216,13 @@ main(!IO) :-
     % This fails. We have to teach the R C FFI to load libraries. How?
     % apply_to_float2d("data.table::data.table", array2d([[1.15, 3.15], [2.15, 4.15]]),
     %               yes, _, !.IO, !:IO) = _,
-    compose_to_float2d(["print", "log", "sum", "unlist"],
+    compose_to_float2d(["log", "sum", "unlist"],
                        array2d([[1.15, 3.15],
                                 [2.15, 4.15]]),
                      yes, S50, _, !.IO, !:IO),
-    apply_to_sexp("print", S50, no, S51, _, !IO),nl(!IO),
-    write_float(to_float_det(S51), !IO).
+    apply_to_sexp("print", S50, no, S51, _, !IO), nl(!IO),
+    compose_to_sexp(["print", "exp", "exp"], S50, no, S52, _, !IO), nl(!IO),
+    write_float(to_float_det(S52), !IO).
 
 :- initialise start_R/2.
 
