@@ -61,7 +61,7 @@
 %
 % Predicates, functions and determinism.
 %
-% Unless this proves useless or inpratical, det predicates should be added
+% Unless this proves useless or impractical, det predicates should be added
 % along with semidet predicates with appropriate and documented default values.
 % With the same caveats, both predicative and functional forms should be
 % provided in the interface. Prefer adding boilerplate to the library and
