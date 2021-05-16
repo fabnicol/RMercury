@@ -78,8 +78,8 @@
 %-----------------------------------------------------------------------------%
 %
 % TODO: - make naming patterns more uniform
-%       - fix error messages not being silenced by Silent = yes.
-%
+%       - fix error messages not being silenced by Silent = yes
+%       - teach the R C FFI to load a library
 %-----------------------------------------------------------------------------%
 
 :- module ri.
@@ -195,6 +195,15 @@
 
 :- type sexp.
 
+:- type sexptype                 %  R vector type - Mercury representation
+    --->    lglsxp               % Logical vector - array(bool)
+    ;       strsxp               % String vector  - array(string)
+    ;       charsxp              % Character vector (string)
+    ;       realsxp              % Numeric vector - array(float)
+    ;       intsxp               % Integer vector - array(int)
+    ;       vecsxp               % List of vectors - array(univ) or list(array(T),...)
+    ;       nilsxp.              % Null vector
+
 % Using typeclass 'length' for a more polymorphic interface.
 % Later to be expanded with other types than 'buffer'.
 
@@ -257,6 +266,8 @@
 :- typeclass sexp_to_buffer(U) where [
     pred sexp_to_buffer(sexp::in, U::out) is semidet,
     pred sexp_to_buffer_det(sexp::in, U::out) is det         % Tested
+%    pred sexp_to_array(sexp::in, U::out) is semidet,
+%    pred sexp_to_array_det(sexp::in, U::out) is det          % Tested
 ].
 
 :- instance sexp_to_buffer(bool_buffer).  % Tested
@@ -1029,36 +1040,78 @@
 %
 %-----------------------------------------------------------------------------%
 
-    %  apply_to_<type>2d(Function, Args2d, Silent, Result, !IO)
-    %     = Exitcode
+    %  apply_to_<type>2d(Function, Args2d, Silent, Result, !IO) = Exitcode
     %
-    %  Apply R Function to array2d Args2d of type <type>
-    %  into an S expression Result. Args2d represents an R list of vectors,
+    %  Apply R Function to array2d Args2d of type <type> into an S expression
+    %  Result.
+    %  Args2d is the Mercury representation of an R list of vectors,
     %  or data frame (or data table).
     %  R vectors are of type VECSXP and may represent any type like
     %  Mercury's array(T).
-    %  They also represent tuples as each component may be of any type.
     %  Here we restrict the pattern to a collection of vectors
     %  of same type <type>.
-    %  They do not represent Lisp/Prolog/Mercury linked lists
+    %  If Silent is yes, no error messages will be allowed.
+    %  Technical note:
+    %  R VECSXP do not represent Lisp/Prolog/Mercury linked lists
     %  (which are LISTSXP).
     %  LISTSXP are only marginally used in R and will not be supported
     %  for now.
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
     %
 
-:- func apply_to_bool2d(string, array2d(bool), int, bool, sexp, io, io) = int.
-:- mode apply_to_bool2d(in, array_di, in, in, out, di, uo) = out is det.
-:- func apply_to_float2d(string, array2d(float), int, bool, sexp, io, io) = int.
-:- mode apply_to_float2d(in, array_di, in, in, out, di, uo) = out is det.
-:- func apply_to_int2d(string, array2d(int), int, bool, sexp, io, io) = int.
-:- mode apply_to_int2d(in, array_di, in, in, out, di, uo) = out is det.
-:- func apply_to_string2d(string, array2d(string), int, bool,
-                          sexp, io, io) = int.
-:- mode apply_to_string2d(in, array_di, in, in, out, di, uo) = out is det.
+:- pred compose_to_bool2d(list(string), array2d(bool), bool, sexp, int, io, io).   % Tested
+:- mode compose_to_bool2d(in, array_di, in, out, out, di, uo) is det.
+:- func compose_to_bool2d(list(string), array2d(bool), bool, sexp, io, io) = int.  % Tested
+:- mode compose_to_bool2d(in, array_di, in, out, di, uo) = out is det.
 
-    %  apply_to_univ2d(Function, Args, Silent, Result, !IO)
-    %      = Exitcode
+:- pred compose_to_float2d(list(string), array2d(float), bool, sexp, int, io, io).  % Tested
+:- mode compose_to_float2d(in, array_di, in, out, out, di, uo) is det.
+:- func compose_to_float2d(list(string), array2d(float), bool, sexp, io, io) = int. % Tested
+:- mode compose_to_float2d(in, array_di, in, out, di, uo) = out is det.
+
+:- pred compose_to_int2d(list(string), array2d(int), bool, sexp, int, io, io).      % Tested
+:- mode compose_to_int2d(in, array_di, in, out, out, di, uo) is det.
+:- func compose_to_int2d(list(string), array2d(int), bool, sexp, io, io) = int.     % Tested
+:- mode compose_to_int2d(in, array_di, in, out, di, uo) = out is det.
+
+:- pred compose_to_string2d(list(string), array2d(string), bool, sexp, int, io, io). % Tested
+:- mode compose_to_string2d(in, array_di, in, out, out, di, uo) is det.
+:- func compose_to_string2d(list(string), array2d(string), bool, sexp, io, io) = int. % Tested
+:- mode compose_to_string2d(in, array_di, in, out, di, uo) = out is det.
+
+:- pred apply_to_bool2d(string, array2d(bool), bool, sexp, int, io, io).   % Tested
+:- mode apply_to_bool2d(in, array_di, in, out, out, di, uo) is det.
+:- func apply_to_bool2d(string, array2d(bool), bool, sexp, io, io) = int.  % Tested
+:- mode apply_to_bool2d(in, array_di, in, out, di, uo) = out is det.
+
+:- pred apply_to_float2d(string, array2d(float), bool, sexp, int, io, io).  % Tested
+:- mode apply_to_float2d(in, array_di, in, out, out, di, uo) is det.
+:- func apply_to_float2d(string, array2d(float), bool, sexp, io, io) = int. % Tested
+:- mode apply_to_float2d(in, array_di, in, out, di, uo) = out is det.
+
+:- pred apply_to_int2d(string, array2d(int), bool, sexp, int, io, io).      % Tested
+:- mode apply_to_int2d(in, array_di, in, out, out, di, uo) is det.
+:- func apply_to_int2d(string, array2d(int), bool, sexp, io, io) = int.     % Tested
+:- mode apply_to_int2d(in, array_di, in, out, di, uo) = out is det.
+
+:- pred apply_to_string2d(string, array2d(string), bool, sexp, int, io, io). % Tested
+:- mode apply_to_string2d(in, array_di, in, out, out, di, uo) is det.
+:- func apply_to_string2d(string, array2d(string), bool, sexp, io, io) = int. % Tested
+:- mode apply_to_string2d(in, array_di, in, out, di, uo) = out is det.
+
+    %  apply_to_sexp(Function, Sexp, Silent, Result, !IO)
+    %     = Exitcode
+    %  apply_to_sexp(Function, Sexp, Silent, Result, Exitcode, !IO)
+    %
+    %  Apply R Function to an S expression into an S expression Result.
+    %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
+
+:- pred apply_to_sexp(string, sexp, bool, sexp, int, io, io).      % Tested
+:- mode apply_to_sexp(in, array_di, in, out, out, di, uo) is det.
+:- func apply_to_sexp(string, sexp, bool, sexp, io, io) = int.     % Tested
+:- mode apply_to_sexp(in, in, in, out, di, uo) = out is det.
+
+    %  apply_to_univ2d(Function, Args, Silent, Result, !IO) = Exitcode
     %
     %  Source R Function to "matrix" Args into an S expression Result.
     %  Vector elements may be same-length vectors of different types.
@@ -1182,6 +1235,17 @@
       parse_error        - "R_MR_PARSE_ERROR",
       max_vect_error     - "R_MR_MAX_VECT_ERROR",
       size_vect2d_alloc_error - "R_MR_SIZE_VECT2D_ALLOC_ERROR"
+    ]).
+
+:- pragma foreign_enum("C", ri.sexptype/0,
+    [
+        strsxp         - "STRSXP",
+        intsxp         - "INTSXP",
+        lglsxp         - "LGLSXP",
+        realsxp        - "REALSXP",
+        vecsxp         - "VECSXP",
+        charsxp        - "CHARSXP",
+        nilsxp         - "NILSXP"
     ]).
 
 %-----------------------------------------------------------------------------%
@@ -2217,21 +2281,29 @@ sexp_to_univ_buffer_det(Sexp, Buffer) :-
 :- instance sexp_to_buffer(bool_buffer) where [
     pred(sexp_to_buffer/2) is to_bool_buffer,
     pred(sexp_to_buffer_det/2) is to_bool_buffer_det
+%    pred(sexp_to_array/2) is to_bool_array,
+%    pred(sexp_to_array_det/2) is to_bool_array_det.
 ].
 
 :- instance sexp_to_buffer(float_buffer) where [
     pred(sexp_to_buffer/2) is to_float_buffer,
     pred(sexp_to_buffer_det/2) is to_float_buffer_det
+%    pred(sexp_to_array/2) is to_float_array,
+%    pred(sexp_to_array_det/2) is to_float_array_det.
 ].
 
 :- instance sexp_to_buffer(int_buffer) where [
     pred(sexp_to_buffer/2) is to_int_buffer,
     pred(sexp_to_buffer_det/2) is to_int_buffer_det
+%    pred(sexp_to_array/2) is to_int_array,
+%    pred(sexp_to_array_det/2) is to_int_array_det.
 ].
 
 :- instance sexp_to_buffer(string_buffer) where [
     pred(sexp_to_buffer/2) is to_string_buffer,
     pred(sexp_to_buffer_det/2) is to_string_buffer_det
+%    pred(sexp_to_array/2) is to_string_array,
+%    pred(sexp_to_array_det/2) is to_string_array_det.
 ].
 
 :- instance to_buffer(int, int_buffer) where [
@@ -3501,82 +3573,139 @@ void
 R_MR_APPLY_HELPER_VECTOR(MR_ArrayPtr, MR_Integer, MR_Integer, SEXP);
 ").
 
+:- func compose_to_bool2d(list(string), array(bool), int, int,
+                        bool, sexp, io, io) = int.
+:- mode compose_to_bool2d(in, array_di, in, in,
+                        in, out, di, uo) = out is det.
+
 :- pragma foreign_proc("C",
-    apply_to_bool2d(Function::in, Array::array_di, NumCols::in, Silent::in,
-        Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
+    compose_to_bool2d(Functions::in, Array::array_di, NumLines::in, NumCols::in,
+                    Silent::in, Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-Exitcode = R_MR_APPLY_HELPER(Function, (MR_ArrayPtr) Array, NumCols, Silent,
-    R_MR_APPLY_HELPER_LOGICAL, LGLSXP, Sexp);
+Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols, Silent,
+    R_MR_APPLY_HELPER_LOGICAL, LGLSXP, &Sexp);
 ").
+
+compose_to_bool2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
+    Array = array2d(NumLines, NumCols, Array0),
+    compose_to_bool2d(reverse(Functions), Array0, NumLines, NumCols,
+                   Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+compose_to_bool2d(Functions, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    compose_to_bool2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode.
 
 % Apply R Function of R integral data frame Arg into an S expression Result.
 
+:- func compose_to_int2d(list(string), array(int), int, int,
+                        bool, sexp, io, io) = int.
+
+:- mode compose_to_int2d(in, array_di, in, in,
+                       in, out, di, uo) = out is det.
+
 :- pragma foreign_proc("C",
-    apply_to_int2d(Function::in, Array::array_di, NumCols::in, Silent::in,
-        Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
+    compose_to_int2d(Functions::in, Array::array_di, NumLines::in, NumCols::in,
+                   Silent::in, Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
     [promise_pure, will_not_call_mercury, tabled_for_io],
 "
-Exitcode = R_MR_APPLY_HELPER(Function, (MR_ArrayPtr) Array, NumCols, Silent,
-    R_MR_APPLY_HELPER_INTEGER, INTSXP, Sexp);
+Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols, Silent,
+    R_MR_APPLY_HELPER_INTEGER, INTSXP, &Sexp);
 ").
+
+compose_to_int2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
+    Array = array2d(NumLines, NumCols, Array0),
+    compose_to_int2d(reverse(Functions), Array0, NumLines, NumCols,
+                   Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+compose_to_int2d(Functions, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    compose_to_int2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode.
 
 % Apply R Function of R numeric data frame Arg into an S expression Result.
 
+:- func compose_to_float2d(list(string), array(float), int, int,
+                        bool, sexp, io, io) = int.
+
+:- mode compose_to_float2d(in, array_di, in, in,
+                          in, out, di, uo) = out is det.
+
 :- pragma foreign_proc("C",
-    apply_to_float2d(Function::in, Array::array_di, NumCols::in, Silent::in,
-        Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
+    compose_to_float2d(Functions::in, Array::array_di, NumLines::in, NumCols::in,
+                     Silent::in, Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-Exitcode = R_MR_APPLY_HELPER(Function, (MR_ArrayPtr) Array, NumCols, Silent,
-    R_MR_APPLY_HELPER_REAL, REALSXP, Sexp);
+Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols, Silent,
+    R_MR_APPLY_HELPER_REAL, REALSXP, &Sexp);
 ").
+
+compose_to_float2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
+    Array = array2d(NumLines, NumCols, Array0),
+    compose_to_float2d(reverse(Functions), Array0, NumLines, NumCols,
+                     Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+compose_to_float2d(Functions, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    compose_to_float2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode.
 
 %  Apply R Function of R character (string) data frame  Arg
 %  into an S expression Result.
 
+:- func compose_to_string2d(list(string), array(string), int, int,
+                          bool, sexp, io, io) = int.
+
+:- mode compose_to_string2d(in, array_di, in, in,
+                          in, out, di, uo) = out is det.
+
 :- pragma foreign_proc("C",
-    apply_to_string2d(Function::in, Array::array_di, NumCols::in, Silent::in,
-        Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
+    compose_to_string2d(Functions::in, Array::array_di, NumLines::in, NumCols::in,
+                      Silent::in, Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-Exitcode = R_MR_APPLY_HELPER(Function, (MR_ArrayPtr) Array, NumCols, Silent,
-    R_MR_APPLY_HELPER_STRING, STRSXP, Sexp);
+Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols, Silent,
+    R_MR_APPLY_HELPER_STRING, STRSXP, &Sexp);
 ").
+
+compose_to_string2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
+    Array = array2d(NumLines, NumCols, Array0),
+    compose_to_string2d(reverse(Functions), Array0, NumLines, NumCols,
+                      Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+compose_to_string2d(Functions, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    compose_to_string2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode.
 
 :- pragma foreign_code("C",
 "
 inline MR_Integer
-R_MR_APPLY_HELPER(MR_String function, MR_ArrayPtr array, MR_Integer numcols,
-    MR_Bool silent, void (*f)(MR_ArrayPtr, MR_Integer, MR_Integer, SEXP),
-    int sexptype, SEXP s)
+R_MR_APPLY_HELPER(MR_Word functions, MR_ArrayPtr array, MR_Integer numlines,
+    MR_Integer numcols, MR_Bool silent, void (*f)(MR_ArrayPtr, MR_Integer,
+    MR_Integer, SEXP), int sexptype, SEXP *sexpout)
 {
     SET_SILENT(silent);
     int exitcode;
-    SEXP tmp;
-
     if (numcols == 0) {
         exitcode = R_MR_NULL_ARGS;
-        s = NULL;
+        sexpout = NULL;
     } else {
         SEXP arg = PROTECT(allocVector(VECSXP, numcols));
         if (arg == NULL) {
             return R_MR_SIZE_VECT2D_ALLOC_ERROR;
         }
-        int numrows = array->size / numcols;
         for (int i = 0; i < numcols; ++i) {
-            SEXP tmp_i = PROTECT(allocVector(sexptype, numrows));
-            f(array, numrows, i * numcols, tmp_i);
+            SEXP tmp_i = PROTECT(allocVector(sexptype, numlines));
+            f(array, numlines, i * numcols, tmp_i);
             SET_VECTOR_ELT(arg, i, tmp_i);
         }
-        PROTECT(tmp = lang2(install(function), arg));
-        // TODO: test s != NULL
+        int index = 0;
+        while (! MR_list_is_empty(functions)) {
+            char* function = MR_list_head(functions);
+            functions = MR_list_tail(functions);
+            PROTECT(arg = lang2(install(function), arg));
+            ++index;
+        }
 
-        s = R_tryEval(tmp, R_GlobalEnv, &exitcode);
-        UNPROTECT(1);
+        *sexpout = R_tryEval(arg, R_GlobalEnv, &exitcode);
+        UNPROTECT(numcols + index);
     }
     RESTORE_VERBOSITY;
     return exitcode;
@@ -3616,7 +3745,7 @@ R_MR_APPLY_HELPER_REAL(MR_ArrayPtr array, MR_Integer nrows,
 {
     MR_Float *R = REAL(vect);
     for (int j = 0; j < nrows; ++j)
-        R[j]  = array->elements[index + j];
+        R[j]  = (double) MR_word_to_float(array->elements[index + j]);
 }
 ").
 
@@ -3630,6 +3759,56 @@ R_MR_APPLY_HELPER_STRING(MR_ArrayPtr array, MR_Integer nrows,
         SET_STRING_ELT(vect, j,
             Rf_mkChar((const char*) array->elements[index + j]));
 }
+").
+
+apply_to_bool2d(Function, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
+    compose_to_bool2d([Function], Array, Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+apply_to_bool2d(Function, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    compose_to_bool2d([Function], Array, Silent, Sexp, Errorcode, !.IO, !:IO).
+
+apply_to_float2d(Function, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
+    compose_to_float2d([Function], Array, Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+apply_to_float2d(Function, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    compose_to_float2d([Function], Array, Silent, Sexp, Errorcode, !.IO, !:IO).
+
+apply_to_int2d(Function, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
+    compose_to_int2d([Function], Array, Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+apply_to_int2d(Function, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    compose_to_int2d([Function], Array, Silent, Sexp, Errorcode, !.IO, !:IO).
+
+apply_to_string2d(Function, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
+    compose_to_string2d([Function], Array, Silent, Sexp, !.IO, !:IO) = Errorcode.
+
+apply_to_string2d(Function, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
+    compose_to_string2d([Function], Array, Silent, Sexp, Errorcode, !.IO, !:IO).
+
+
+apply_to_sexp(Function, SexpIn, Silent, SexpOut, Errorcode, !.IO, !:IO) :-
+    apply_to_sexp(Function, SexpIn, Silent, SexpOut,
+                  !.IO, !:IO) = Errorcode.
+
+:- pragma foreign_proc("C",
+    apply_to_sexp(Function::in, SexpIn::in, Silent::in,
+                  SexpOut::out, IO0::di, IO::uo) = (Errorcode::out),
+    [will_not_call_mercury, promise_pure],
+"
+SET_SILENT(Silent);
+if (SexpIn == NULL
+    || TYPEOF(SexpIn) == NILSXP) {
+    Errorcode = R_MR_NULL_ARGS;
+    SexpOut = NULL;
+    if (Silent == MR_NO)
+        fprintf(stderr, ""%s\\n"", ""Error: null SEXP input."");
+} else {
+    SEXP tmp = (SEXP) SexpIn;
+    PROTECT(tmp = lang2(install(Function), tmp));
+    SexpOut = R_tryEval(tmp, R_GlobalEnv, &Errorcode);
+    UNPROTECT(1);
+}
+RESTORE_VERBOSITY;
 ").
 
 %  Apply R Function of R data frame Arg with column types either logical,
@@ -3969,7 +4148,7 @@ write_item(Item, !IO) :-
     else if Item = string_base(Value) then
         io.write_string(Value, !IO)
     else if Item = bool_base(Value) then
-	ri.write_rbool(Value, !IO)
+        ri.write_rbool(Value, !IO)
     else
         io.nl(!IO)
     ).

@@ -51,7 +51,7 @@
 :- import_module string.
 :- import_module ri.
 :- import_module bool.
-:- import_module array.
+:- import_module array, array2d.
 
 main(!IO) :-
     eval_int("a<-8", E, !IO),
@@ -200,16 +200,28 @@ main(!IO) :-
     apply_to_bool("print", yes, yes,  _, _, !.IO, !:IO),
     apply_to_float("print",1.15, yes, _, _, !.IO, !:IO),
     apply_to_int("print", 1, yes, _, _, !.IO, !:IO),
-
     % For graphics, there is still to connect to X
     %apply_to_float("plot", array([0.0,1.0,2.0,3.0,5.5]), no, _, !.IO, !:IO) = _,
     % same with source
     source_string("print(sum(1:50))", !IO),
-    apply_to_string("cat", "abc", yes, _, !.IO, !:IO) = _.
-
-    % write_int(Errorcode2, !IO), nl(!IO).
-
-
+    apply_to_string2d("unlist", array2d([["cat", "miaow"], ["dog", "waow"]]),
+                      yes, S47, !.IO, !:IO) = _,
+    % We would like to fit in R options, like collapse = " "
+    apply_to_sexp("paste0", S47, no, S48, _, !IO),
+    write_string(to_string_det(S48), !IO),
+    apply_to_bool2d("print", array2d([[no, yes], [yes, yes]]),
+                     yes, _, !.IO, !:IO) = _,
+    apply_to_int2d("print", array2d([[1, 3], [2, 4]]),
+                   yes, _, !.IO, !:IO) = _,
+    % This fails. We have to teach the R C FFI to load libraries. How?
+    % apply_to_float2d("data.table::data.table", array2d([[1.15, 3.15], [2.15, 4.15]]),
+    %               yes, _, !.IO, !:IO) = _,
+    compose_to_float2d(["print", "log", "sum", "unlist"],
+                       array2d([[1.15, 3.15],
+                                [2.15, 4.15]]),
+                     yes, S50, _, !.IO, !:IO),
+    apply_to_sexp("print", S50, no, S51, _, !IO),nl(!IO),
+    write_float(to_float_det(S51), !IO).
 
 :- initialise start_R/2.
 
