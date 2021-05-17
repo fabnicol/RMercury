@@ -1245,7 +1245,7 @@ transpose_array(Array) = TransposedArray :-
 % Note: The implementation is inefficient.
 % We are using the simple Cate & Twigg formula.
 % One would wish not to deep-copy array elements and just use index mappings,
-% which would be passed to univ_to_univ2d_helper. To be revised.
+% which would be passed to apply_to_univ2d_helper. To be revised.
 
 transpose_array(Array, NumRows) = TransposedArray :-
     Size = size(Array),
