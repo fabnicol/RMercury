@@ -1238,7 +1238,7 @@
 transpose_array(Array) = TransposedArray :-
     Array = array2d(NumRows, NumCols, A),
     transpose_array(A, NumRows) = TA,
-    TransposedArray = array2d(NumRows, NumCols, TA).
+    TransposedArray = array2d(NumCols, NumRows, TA).
 
 :- func transpose_array(array(T), int) = array(T).
 
