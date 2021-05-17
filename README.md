@@ -7,7 +7,7 @@ The module is labelled 'ri' for 'R Interface'.
 + Preliminary design and programming completed.  
 + Currently the library builds and linked programs build with it 
 (30 April 2021).  
-+ Serious segfault issues to be solved at runtime.  
++ univ-based procedures to be fixed.
 
 ### Prerequisites
 
