@@ -3877,13 +3877,13 @@ apply_to_univ2d(Code, Argv, Silent, Result, Exitcode, !.IO, !:IO) :-
 % This is forced by the requirement of converting Mercury row-major order for
 % array2d into R column-major order for data frames.
 % The other method would be to to pass data without transposing in Mercury, as
-% strings, and coerce types in R row by row, then transpose in R.  This would
+% strings, and coerce types in R row by row.  This would
 % be probably quicker but might cause reliability issues.
 % When all types are the same, it may be considered to use the above
 % procedures.  When all types are numeric, it may be considered to cast to
 % double, use the above procedures for float type, then cast to integer or
 % boolean if necessary in R.  These special cases will be dealt with later.
-% Technocil note: point P(r,c) -> Q(c, r)
+% Technical note: point P(r,c) -> Q(c, r)
 %    i.e       r * NumCols + c -> c  * NumRows + r
 
 apply_to_univ2d(Code, Argv, Silent, Result, !.IO, !:IO) = Exitcode :-
@@ -3928,8 +3928,8 @@ transpose_array(Array) = TransposedArray :-
 
 transpose_array(Array, NumRows, NumCols) = TransposedArray :-
     array(map(lookup(Array),
-        map(transpose_index(NumRows, NumCols),
-            0 `..` (NumRows * NumCols - 1))))
+              map(transpose_index(NumRows, NumCols),
+                      0 `..` (NumRows * NumCols - 1))))
         = TransposedArray.
 
 :- func transpose_index(int, int, int) = int.
