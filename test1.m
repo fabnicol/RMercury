@@ -28,8 +28,8 @@
 %-----------------------------------------------------------------------------%
 %
 % Exec command line:
-% export R_HOME=/usr/lib64/R && LD_LIBRARY_PATH=/usr/lib64/R/lib ./test1
-%
+% R_HOME=/usr/lib64/R  LD_LIBRARY_PATH=/usr/lib64/R/lib ./test1
+% Replace R_HOME with your platform value.
 %-----------------------------------------------------------------------------%
 
 :- module test1.

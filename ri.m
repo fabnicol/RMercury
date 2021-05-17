@@ -1,78 +1,27 @@
 % File: ri.m Purpose: An R interface library for Mercury.
 % Copyright Fabrice Nicol <fabnicol@users.sourceforge.net>, 2021 The latest
 % version can be found at http://github.com/fabnicol
-
 % This program is free software; you can redistribute it and/or modify it under
 % the terms of the GNU General Public License as published by the Free Software
 % Foundation; either version 3 of the License, or (at your option) any later
 % version.
-
 % This program is distributed in the hope that it will be useful, but WITHOUT
 % ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 % FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 % details.
-
 % You should have received a copy of the GNU General Public License along with
 % this program; if not, write to the Free Software Foundation, Inc., 675 Mass
 % Ave, Cambridge, MA 02139, USA.
 
+%-----------------------------------------------------------------------------%
 % Version R >= 2.4.0. This is untested, but 2.4 has been obsolete for long now.
-
-%-----------------------------------------------------------------------------%
-%
-% Coding standards
-%
-% This file follows the Mercury coding standards with a few departures:
-%  - no vim headers when emacs is used;
-%  - types formatted as in type 'allow';
-%  - a comment begins with an uppercase letter if it contains a verb or is
-%    a section header. A section header has no final dot. A sentence ends in
-%    a dot. Otherwise a comment begins with a lowercase letter and does not end
-%    in dot;
-%  - inlined comments are separated from code with just 4 spaces, unless they
-%    are right-aligned vertically for clarity;
-%  - last arguments and determinism of predicates and functions may be
-%    right-aligned as follows:
-%
-% :- pred lookup_bool_vect_size(bool_buffer::in,     int::out) is det.
-% :- pred lookup_int_vect_size(int_buffer::in,       int::out) is det.
-%
-%    The amount of white space added is such that determinism is vertically
-%    aligned;
-%  - closely-related declarations may be grouped together under common
-%    comment heading and paragraphs if all patterns are documented;
-%  - C code uses brackets formatted as follows:
-%
-%      if (condition) {
-%          ...
-%      } else {
-%          ...
-%      }
-%  - there may subsections separated as follows:
-%
-%  %---- Header ----% [78 characters exactly]
-%
-%  - pointers to external APIs should be referenced as follows e.g.:
-%    Reference: R API, path/to/file.extension | path to Doxygen index.html.
-%
-%  - building command line should be referenced just before
-%    :- module mypackage.
-%  - execution command line, if relevant, must follow.
-%
-% Predicates, functions and determinism.
-%
-% Unless this proves useless or impractical, det predicates should be added
-% along with semidet predicates with appropriate and documented default values.
-% With the same caveats, both predicative and functional forms should be
-% provided in the interface. Prefer adding boilerplate to the library and
-% interface with normalized defaults to alternative options.
-%
-%-----------------------------------------------------------------------------%
 %-----------------------------------------------------------------------------%
 % Built with:
 % /usr/local/mercury-DEV/bin/mmc
 %     --output-compile-error-lines 10000
 %     --make libri
+%
+% This library will NOT work with 20.06 and will need an ROTD >= 2020-11-05
 %-----------------------------------------------------------------------------%
 
 %-----------------------------------------------------------------------------%
@@ -80,6 +29,8 @@
 % TODO: - make naming patterns more uniform
 %       - fix error messages not being silenced by Silent = yes
 %       - teach the R C FFI to load a library
+%       - HIGH PRIORITY: add R target function options to apply_/compose_
+%         procedures.
 %-----------------------------------------------------------------------------%
 
 :- module ri.
@@ -124,6 +75,25 @@
 
 :- type behavior
     --->    behavior(numeric :: allow).    % To be augmented.
+
+%-----------------------------------------------------------------------------%
+%
+%  Rationale of type Mercury representations of R types
+%
+%  R --> Mercury
+%      Currently we are using typed buffers and a 'catch-all' univ-like 'buffer'
+%      type for a smack of universality. These buffers are array-like and could
+%      be ultimately replaced by arrays, with possible reservations and caveats.
+%      They are used to retrieve results from R sessions and use them within
+%      Mercury.
+%  R --> R
+%      We are using a sexp type, as a Mercury representation of SEXP pointers
+%      in R. These are fine when the computations are chained from R output to
+%      R input.
+%  Mercury --> R
+%      We will be using array, array2d and occasionally lists, which raise
+%      performance issue in statistics yet may be useful to pack short-sized
+%      R lists (like columns in a data frame).
 
     %-------------------------------------------------------------------------%
     % A note on R-to-Mercury type casting
@@ -201,13 +171,19 @@
     ;       charsxp              % Character vector (string)
     ;       realsxp              % Numeric vector - array(float)
     ;       intsxp               % Integer vector - array(int)
-    ;       vecsxp               % List of vectors - array(univ) or list(array(T),...)
+    ;       vecsxp               % List of vectors - array(univ) or
+                                 % list(array(T),...)
     ;       nilsxp.              % Null vector
 
+%-----------------------------------------------------------------------------%
+%
+% Miscellaneous utilities
+%
 
 :- func transpose_array(array2d(T)) = array2d(T).
 
-% Using typeclass 'length' for a more polymorphic interface.
+%-----------------------------------------------------------------------------%
+
 % Later to be expanded with other types than 'buffer'.
 
 :- typeclass eval_length(T) where [         % currently T is only 'buffer'
@@ -323,13 +299,15 @@
 :- pred create_bool_buffer_det(bool::in, bool_buffer::out)   is det.
 :- func create_bool_buffer_det(bool) = bool_buffer.
 
-:- pred create_float_buffer_det(float::in,   float_buffer::out)  is det. % Tested
+:- pred create_float_buffer_det(float::in,   float_buffer::out)  is det.
+% Tested
 :- func create_float_buffer_det(float) = float_buffer.
 
 :- pred create_int_buffer_det(int::in,   int_buffer::out)  is det.
 :- func create_int_buffer_det(int) = int_buffer.
 
-:- pred create_string_buffer_det(string::in,   string_buffer::out)  is det. % Tested
+:- pred create_string_buffer_det(string::in,   string_buffer::out)  is det.
+% Tested
 :- func create_string_buffer_det(string) = string_buffer.
 
     % create_<type>_buffer(Size, List, Buffer)
@@ -337,9 +315,9 @@
     %
     % Create <type>_buffer containing Size elements of type <type> out of List.
     % Buffer is nil in case of an allocation issue. Size may be different from
-    % length(List). If Size =< length(List), the first Size elements of List are
-    % selected. If Size > length(List), a sensible default is used (0 for int,
-    % 0.0 for float, "" for string and no for bool).
+    % length(List). If Size =< length(List), the first Size elements of List
+    % are selected. If Size > length(List), a sensible default is used (0 for
+    % int, 0.0 for float, "" for string and no for bool).
     %
 
 :- pred create_bool_buffer(int, list(bool), bool_buffer).
@@ -506,10 +484,14 @@
     % Warning: Currently empty R vectors are causing an error when accessed
     % in Mercury. This behavior should be changed.
 
-:- pred lookup_bool_vect(bool_buffer::in, int::in,     bool::out)   is det. % Tested
-:- pred lookup_float_vect(float_buffer::in, int::in,   float::out)  is det. % Tested
-:- pred lookup_int_vect(int_buffer::in, int::in,       int::out)    is det. % Tested
-:- pred lookup_string_vect(string_buffer::in, int::in, string::out) is det. % Tested
+:- pred lookup_bool_vect(bool_buffer::in, int::in,     bool::out)   is det.
+% Tested
+:- pred lookup_float_vect(float_buffer::in, int::in,   float::out)  is det.
+% Tested
+:- pred lookup_int_vect(int_buffer::in, int::in,       int::out)    is det.
+% Tested
+:- pred lookup_string_vect(string_buffer::in, int::in, string::out) is det.
+% Tested
 
 :- func lookup_bool_vect(bool_buffer, int) =  bool.      % Tested
 :- func lookup_float_vect(float_buffer, int) = float.    % Tested
@@ -795,7 +777,7 @@
 :- pred int_vect(string::in, buffer::out, io::di,    io::uo) is det.
 :- pred string_vect(string::in, buffer::out, io::di, io::uo) is det.
 
-%-------------------------------------------------------------------------%
+%-----------------------------------------------------------------------------%
 %
 % Mercury accessors to buffer-type representation of R vectors.
 %
@@ -853,7 +835,8 @@
 :- func to_int(sexp)    = int    is semidet. % fails if not int.
 :- func to_string(sexp) = string is semidet. % fails if not string.
 
-:- pred to_bool_det(sexp::in,   bool::out)   is det.  % FALSE if not bool. % Tested
+:- pred to_bool_det(sexp::in,   bool::out)   is det.  % FALSE if not bool.
+% Tested
 :- pred to_float_det(sexp::in,  float::out)  is det.  % 0.0 if not float
 :- pred to_int_det(sexp::in,    int::out)    is det.  % 0 if not int.
 :- pred to_string_det(sexp::in, string::out) is det.  %  "" if not string.
@@ -861,7 +844,8 @@
 :- func to_bool_det(sexp)   = bool.   % returns FALSE if not bool.
 :- func to_float_det(sexp)  = float.  % returns 0.0 if not float
 :- func to_int_det(sexp)    = int.    % returns 0 if not int.
-:- func to_string_det(sexp) = string. % returns "" if not string.          % Tested
+:- func to_string_det(sexp) = string. % returns "" if not string.
+% Tested
 
     % Sexp to typed buffer.
 
@@ -928,10 +912,14 @@
 :- pred int_buffer_to_sexp(int_buffer::in,       sexp::out) is semidet.
 :- pred string_buffer_to_sexp(string_buffer::in, sexp::out) is semidet.
 
-:- pred bool_buffer_to_sexp_det(bool_buffer::in,     sexp::out) is det. % Tested
-:- pred float_buffer_to_sexp_det(float_buffer::in,   sexp::out) is det. % Tested
-:- pred int_buffer_to_sexp_det(int_buffer::in,       sexp::out) is det. % Tested
-:- pred string_buffer_to_sexp_det(string_buffer::in, sexp::out) is det. % Tested
+:- pred bool_buffer_to_sexp_det(bool_buffer::in,     sexp::out) is det.
+% Tested
+:- pred float_buffer_to_sexp_det(float_buffer::in,   sexp::out) is det.
+% Tested
+:- pred int_buffer_to_sexp_det(int_buffer::in,       sexp::out) is det.
+% Tested
+:- pred string_buffer_to_sexp_det(string_buffer::in, sexp::out) is det.
+% Tested
 
 %-----------------------------------------------------------------------------%
 %
@@ -951,9 +939,11 @@
     %  Apply R Function to logical vector Arg into an S expression Result.
     %  Reference: R API, Embedding/RParseEval.c, embeddedRCall.c
 
-:- pred apply_to_bool_array(string, array(bool), bool, sexp, int, io, io).  % Tested
+:- pred apply_to_bool_array(string, array(bool), bool, sexp, int, io, io).
+% Tested
 :- mode apply_to_bool_array(in, array_di, in, out, out, di, uo) is det.
-:- func apply_to_bool_array(string, array(bool), bool, sexp, io, io) = int. % Tested
+:- func apply_to_bool_array(string, array(bool), bool, sexp, io, io) = int.
+% Tested
 :- mode apply_to_bool_array(in, array_di, in, out, di, uo) = out is det.
 
     %  apply_to_bool(Function, Arg, Silent, Result, !IO)
@@ -975,9 +965,11 @@
     %  is actually a double in most cases.
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
 
-:- pred apply_to_float_array(string, array(float), bool, sexp, int, io, io).   % Tested
+:- pred apply_to_float_array(string, array(float), bool, sexp, int, io, io).
+% Tested
 :- mode apply_to_float_array(in, array_di, in, out, out, di, uo) is det.
-:- func apply_to_float_array(string, array(float), bool, sexp, io, io) = int.  % Tested
+:- func apply_to_float_array(string, array(float), bool, sexp, io, io) = int.
+% Tested
 :- mode apply_to_float_array(in, array_di, in, out, di, uo) = out is det.
 
     %  apply_to_float(Function, Arg, Silent, Result, !IO)
@@ -998,9 +990,11 @@
     %  Apply R Function to integral vector Arg into an S expression Result.
     %  Reference: R API, Embedding/RParseEval.c, embeddedRCall.c
 
-:- pred apply_to_int_array(string, array(int), bool, sexp, int, io, io).  % Tested
+:- pred apply_to_int_array(string, array(int), bool, sexp, int, io, io).
+% Tested
 :- mode apply_to_int_array(in, array_di, in, out, out, di, uo) is det.
-:- func apply_to_int_array(string, array(int), bool, sexp, io, io) = int.  % Tested
+:- func apply_to_int_array(string, array(int), bool, sexp, io, io) = int.
+% Tested
 :- mode apply_to_int_array(in, array_di, in, out, di, uo) = out is det.
 
     %  apply_to_int(Function, Arg, Silent, Result, !IO)
@@ -1032,9 +1026,11 @@
     %  Apply R Function to string vector Arg into an S expression Result.
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
 
-:- pred apply_to_string_array(string, array(string), bool, sexp, int, io, io).  % Tested
+:- pred apply_to_string_array(string, array(string), bool, sexp, int, io, io).
+% Tested
 :- mode apply_to_string_array(in, array_di, in, out, out, di, uo) is det.
-:- func apply_to_string_array(string, array(string), bool, sexp, io, io) = int.  % Tested
+:- func apply_to_string_array(string, array(string), bool, sexp, io, io) = int.
+% Tested
 :- mode apply_to_string_array(in, array_di, in, out, di, uo) = out is det.
 
 %-----------------------------------------------------------------------------%
@@ -1064,24 +1060,32 @@
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
     %
 
-:- pred apply_to_bool2d(string, array2d(bool), bool, sexp, int, io, io).   % Tested
+:- pred apply_to_bool2d(string, array2d(bool), bool, sexp, int, io, io).
+% Tested
 :- mode apply_to_bool2d(in, array_di, in, out, out, di, uo) is det.
-:- func apply_to_bool2d(string, array2d(bool), bool, sexp, io, io) = int.  % Tested
+:- func apply_to_bool2d(string, array2d(bool), bool, sexp, io, io) = int.
+% Tested
 :- mode apply_to_bool2d(in, array_di, in, out, di, uo) = out is det.
 
-:- pred apply_to_float2d(string, array2d(float), bool, sexp, int, io, io).  % Tested
+:- pred apply_to_float2d(string, array2d(float), bool, sexp, int, io, io).
+% Tested
 :- mode apply_to_float2d(in, array_di, in, out, out, di, uo) is det.
-:- func apply_to_float2d(string, array2d(float), bool, sexp, io, io) = int. % Tested
+:- func apply_to_float2d(string, array2d(float), bool, sexp, io, io) = int.
+% Tested
 :- mode apply_to_float2d(in, array_di, in, out, di, uo) = out is det.
 
-:- pred apply_to_int2d(string, array2d(int), bool, sexp, int, io, io).      % Tested
+:- pred apply_to_int2d(string, array2d(int), bool, sexp, int, io, io).
+% Tested
 :- mode apply_to_int2d(in, array_di, in, out, out, di, uo) is det.
-:- func apply_to_int2d(string, array2d(int), bool, sexp, io, io) = int.     % Tested
+:- func apply_to_int2d(string, array2d(int), bool, sexp, io, io) = int.
+% Tested
 :- mode apply_to_int2d(in, array_di, in, out, di, uo) = out is det.
 
-:- pred apply_to_string2d(string, array2d(string), bool, sexp, int, io, io). % Tested
+:- pred apply_to_string2d(string, array2d(string), bool, sexp, int, io, io).
+% Tested
 :- mode apply_to_string2d(in, array_di, in, out, out, di, uo) is det.
-:- func apply_to_string2d(string, array2d(string), bool, sexp, io, io) = int. % Tested
+:- func apply_to_string2d(string, array2d(string), bool, sexp, io, io) = int.
+% Tested
 :- mode apply_to_string2d(in, array_di, in, out, di, uo) = out is det.
 
     %  compose_to_<type>2d(Functions, Args2d, Silent, Result, !IO) = Exitcode
@@ -1091,24 +1095,32 @@
     %  of each function listed in Functions. Except for the first function
     %  applied, there is no restriction on the type domain of other functions.
 
-:- pred compose_to_bool2d(list(string), array2d(bool), bool, sexp, int, io, io).   % Tested
+:- pred compose_to_bool2d(list(string), array2d(bool), bool, sexp, int, io, io).
+% Tested
 :- mode compose_to_bool2d(in, array_di, in, out, out, di, uo) is det.
-:- func compose_to_bool2d(list(string), array2d(bool), bool, sexp, io, io) = int.  % Tested
+:- func compose_to_bool2d(list(string), array2d(bool), bool, sexp, io, io)
+= int.  % Tested
 :- mode compose_to_bool2d(in, array_di, in, out, di, uo) = out is det.
 
-:- pred compose_to_float2d(list(string), array2d(float), bool, sexp, int, io, io).  % Tested
+:- pred compose_to_float2d(list(string), array2d(float), bool,
+    sexp, int, io, io).  % Tested
 :- mode compose_to_float2d(in, array_di, in, out, out, di, uo) is det.
-:- func compose_to_float2d(list(string), array2d(float), bool, sexp, io, io) = int. % Tested
+:- func compose_to_float2d(list(string), array2d(float), bool,
+    sexp, io, io) = int. % Tested
 :- mode compose_to_float2d(in, array_di, in, out, di, uo) = out is det.
 
-:- pred compose_to_int2d(list(string), array2d(int), bool, sexp, int, io, io).      % Tested
+:- pred compose_to_int2d(list(string), array2d(int), bool, sexp, int, io, io).
+% Tested
 :- mode compose_to_int2d(in, array_di, in, out, out, di, uo) is det.
-:- func compose_to_int2d(list(string), array2d(int), bool, sexp, io, io) = int.     % Tested
+:- func compose_to_int2d(list(string), array2d(int), bool, sexp, io, io) = int.
+% Tested
 :- mode compose_to_int2d(in, array_di, in, out, di, uo) = out is det.
 
-:- pred compose_to_string2d(list(string), array2d(string), bool, sexp, int, io, io). % Tested
+:- pred compose_to_string2d(list(string), array2d(string), bool,
+    sexp, int, io, io). % Tested
 :- mode compose_to_string2d(in, array_di, in, out, out, di, uo) is det.
-:- func compose_to_string2d(list(string), array2d(string), bool, sexp, io, io) = int. % Tested
+:- func compose_to_string2d(list(string), array2d(string), bool,
+    sexp, io, io) = int. % Tested
 :- mode compose_to_string2d(in, array_di, in, out, di, uo) = out is det.
 
     %  apply_to_sexp(Function, Sexp, Silent, Result, !IO)
@@ -1135,9 +1147,11 @@
     %  % R: S1 <- print(sum(unlist(S0)))
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
 
-:- pred compose_to_sexp(list(string), sexp, bool, sexp, int, io, io).      % Tested
+:- pred compose_to_sexp(list(string), sexp, bool, sexp, int, io, io).
+% Tested
 :- mode compose_to_sexp(in, in, in, out, out, di, uo) is det.
-:- func compose_to_sexp(list(string), sexp, bool, sexp, io, io) = int.     % Tested
+:- func compose_to_sexp(list(string), sexp, bool, sexp, io, io) = int.
+% Tested
 :- mode compose_to_sexp(in, in, in, out, di, uo) = out is det.
 
     %  apply_to_univ2d(Function, Args, Silent, Result, Exitcode, !IO)
@@ -1217,9 +1231,36 @@
     ---> nil_sexp
     ;    sexp.
 
-%:- type nil_sexp =< sexp  ---> nil_sexp.   % -> C pointer NULL for SEXP.
-
 :- type r_buffer ---> r_buffer.
+
+% ---- Array transpose utility -----------------------------------------------%
+
+transpose_array(Array) = TransposedArray :-
+    Array = array2d(NumRows, NumCols, A),
+    transpose_array(A, NumRows) = TA,
+    TransposedArray = array2d(NumRows, NumCols, TA).
+
+:- func transpose_array(array(T), int) = array(T).
+
+% Note: The implementation is inefficient.
+% We are using the simple Cate & Twigg formula.
+% One would wish not to deep-copy array elements and just use index mappings,
+% which would be passed to univ_to_univ2d_helper. To be revised.
+
+transpose_array(Array, NumRows) = TransposedArray :-
+    Size = size(Array),
+    array(map(lookup(Array),
+          map(transpose_index(NumRows, Size), 0 `..` (Size - 1))))
+        = TransposedArray.
+
+:- func transpose_index(int, int, int) = int.
+
+transpose_index(NumRows, Size, Index) = Result :-
+    ( if Index = Size -1 then
+        Result = Size - 1
+    else
+        Result = (NumRows * Index) mod (Size -1)
+    ).
 
 %-----------------------------------------------------------------------------%
 
@@ -2925,7 +2966,8 @@ to_buffer_det(Sexp, Buffer) :-
         to_string_buffer_det(Sexp, StringBuffer),
         Buffer = from_string_buffer(StringBuffer)
     else
-        unexpected($pred, "Error: Sexp must be of type bool, float, int or string.")
+        unexpected($pred,
+            "Error: Sexp must be of type bool, float, int or string.")
     ).
 
 to_buffer_det(Sexp) = Buffer :- to_buffer_det(Sexp, Buffer).
@@ -3276,7 +3318,8 @@ else
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-STRING_BUFFER *BufferPtr = (STRING_BUFFER*) Buffer; /* MR_Word -> STRING_BUFFER*) */
+    /* MR_Word -> STRING_BUFFER*) */
+STRING_BUFFER *BufferPtr = (STRING_BUFFER*) Buffer;
 MR_Integer size = BufferPtr->size;
 MR_String *contents = (MR_String*) Buffer->contents;
 
@@ -3438,7 +3481,8 @@ RESTORE_VERBOSITY;
 ").
 
 apply_to_float_array(Function, Floats, Silent, Sexp, Errorcode, !.IO, !:IO) :-
-    apply_to_float_array(Function, Floats, Silent, Sexp, !.IO, !:IO) = Errorcode.
+    apply_to_float_array(Function, Floats, Silent, Sexp, !.IO, !:IO)
+    = Errorcode.
 
 :- pragma foreign_proc("C",
     apply_to_float(Function::in, Float::in, Silent::in,
@@ -3615,8 +3659,8 @@ R_MR_APPLY_HELPER_VECTOR(MR_ArrayPtr, int, MR_Integer, MR_Integer, SEXP);
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols, Silent,
-    R_MR_APPLY_HELPER_LOGICAL, LGLSXP, &Sexp);
+Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols,
+    Silent, R_MR_APPLY_HELPER_LOGICAL, LGLSXP, &Sexp);
 ").
 
 compose_to_bool2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
@@ -3640,8 +3684,8 @@ compose_to_bool2d(Functions, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
                    Silent::in, Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
     [promise_pure, will_not_call_mercury, tabled_for_io],
 "
-Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols, Silent,
-    R_MR_APPLY_HELPER_INTEGER, INTSXP, &Sexp);
+Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols,
+    Silent, R_MR_APPLY_HELPER_INTEGER, INTSXP, &Sexp);
 ").
 
 compose_to_int2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
@@ -3661,13 +3705,13 @@ compose_to_int2d(Functions, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
                           in, out, di, uo) = out is det.
 
 :- pragma foreign_proc("C",
-    compose_to_float2d(Functions::in, Array::array_di, NumLines::in, NumCols::in,
-                     Silent::in, Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
+    compose_to_float2d(Functions::in, Array::array_di, NumLines::in,
+        NumCols::in, Silent::in, Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols, Silent,
-    R_MR_APPLY_HELPER_REAL, REALSXP, &Sexp);
+Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols,
+    Silent, R_MR_APPLY_HELPER_REAL, REALSXP, &Sexp);
 ").
 
 compose_to_float2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
@@ -3688,13 +3732,13 @@ compose_to_float2d(Functions, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
                           in, out, di, uo) = out is det.
 
 :- pragma foreign_proc("C",
-    compose_to_string2d(Functions::in, Array::array_di, NumLines::in, NumCols::in,
-                      Silent::in, Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
+    compose_to_string2d(Functions::in, Array::array_di, NumLines::in,
+        NumCols::in, Silent::in, Sexp::out, IO0::di, IO::uo) = (Exitcode::out),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols, Silent,
-    R_MR_APPLY_HELPER_STRING, STRSXP, &Sexp);
+Exitcode = R_MR_APPLY_HELPER(Functions, (MR_ArrayPtr) Array, NumLines, NumCols,
+    Silent, R_MR_APPLY_HELPER_STRING, STRSXP, &Sexp);
 ").
 
 compose_to_string2d(Functions, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
@@ -3811,7 +3855,8 @@ apply_to_int2d(Function, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
     compose_to_int2d([Function], Array, Silent, Sexp, Errorcode, !.IO, !:IO).
 
 apply_to_string2d(Function, Array, Silent, Sexp, !.IO, !:IO) = Errorcode :-
-    compose_to_string2d([Function], Array, Silent, Sexp, !.IO, !:IO) = Errorcode.
+    compose_to_string2d([Function], Array, Silent, Sexp, !.IO, !:IO)
+    = Errorcode.
 
 apply_to_string2d(Function, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
     compose_to_string2d([Function], Array, Silent, Sexp, Errorcode, !.IO, !:IO).
@@ -3836,8 +3881,10 @@ compose_to_sexp2(Functions_, SexpIn, Acc, Out, Silent, Errorcode, !.IO, !:IO) :-
         Out = Acc
     ;
         Functions_ = [Function | Tail],
-        apply_to_sexp(Function, SexpIn, Silent, SexpOut, Errorcode1, !.IO, !:IO),
-        compose_to_sexp2(Tail, SexpOut, SexpOut, Out, Silent, Errorcode2, !.IO, !:IO),
+        apply_to_sexp(Function, SexpIn, Silent, SexpOut,
+            Errorcode1, !.IO, !:IO),
+        compose_to_sexp2(Tail, SexpOut, SexpOut, Out, Silent,
+            Errorcode2, !.IO, !:IO),
         Errorcode = Errorcode1 + Errorcode2
     ).
 
@@ -3897,12 +3944,13 @@ apply_to_univ2d(Code, Argv, Silent, Result, !.IO, !:IO) = Exitcode :-
     ),
     Argv = array2d(NumRows, NumCols, Array),
     apply_to_univ2d_helper(Code, NumRows, NumCols, Types,
-                           transpose_array(Array, NumRows, NumCols),
+                           transpose_array(Array, NumRows),
                            Silent, Result, !.IO, !:IO) = Exitcode.
 
 % Getting a 1-row array of type names.
 
-:- pred univ_to_type_name(array2d(univ)::array_di, array(string)::array_uo) is det.
+:- pred univ_to_type_name(array2d(univ)::array_di,
+    array(string)::array_uo) is det.
 
 univ_to_type_name(A, Typenames) :-
     bounds(A, _, NumCols),
@@ -3914,28 +3962,6 @@ univ_to_type_name(A, Typenames) :-
 
 to_type_name(A, J) = Typename :-
     Typename = type_name(univ_type(lookup(A, 1, J))).
-
-transpose_array(Array) = TransposedArray :-
-    Array = array2d(NumRows, NumCols, A),
-    transpose_array(A, NumRows, NumCols) = TA,
-    TransposedArray = array2d(NumRows, NumCols, TA).
-
-:- func transpose_array(array(T), int, int) = array(T).
-
-% Note: The implementation is inefficient. One would wish not to deep-copy
-% array elements and just use index mappings, which would be passed to
-% univ_to_univ2d_helper. To be revised.
-
-transpose_array(Array, NumRows, NumCols) = TransposedArray :-
-    array(map(lookup(Array),
-              map(transpose_index(NumRows, NumCols),
-                      0 `..` (NumRows * NumCols - 1))))
-        = TransposedArray.
-
-:- func transpose_index(int, int, int) = int.
-
-transpose_index(NumRows, NumCols, Index) = Index / NumCols
-+ (Index mod NumCols) * NumRows.
 
 :- func apply_to_univ2d_helper(string, int, int,
     array(string), array(univ), bool,
@@ -4264,3 +4290,53 @@ writeln_item(Item, !IO) :- write_item(Item, !IO), io.nl(!IO).
 % --------------------------------------------------------------------------- %
 :- end_module ri.
 % --------------------------------------------------------------------------- %
+%-----------------------------------------------------------------------------%
+%
+% Coding standards
+%
+% This file follows the Mercury coding standards with a few departures:
+%  - no vim headers when emacs is used;
+%  - types formatted as in type 'allow';
+%  - a comment begins with an uppercase letter if it contains a verb or is
+%    a section header. A section header has no final dot. A sentence ends in
+%    a dot. Otherwise a comment begins with a lowercase letter and does not end
+%    in dot;
+%  - inlined comments are separated from code with just 4 spaces, unless they
+%    are right-aligned vertically for clarity;
+%  - last arguments and determinism of predicates and functions may be
+%    right-aligned as follows:
+%
+% :- pred lookup_bool_vect_size(bool_buffer::in,     int::out) is det.
+% :- pred lookup_int_vect_size(int_buffer::in,       int::out) is det.
+%
+%    The amount of white space added is such that determinism is vertically
+%    aligned;
+%  - closely-related declarations may be grouped together under common
+%    comment heading and paragraphs if all patterns are documented;
+%  - C code uses brackets formatted as follows:
+%
+%      if (condition) {
+%          ...
+%      } else {
+%          ...
+%      }
+%  - there may subsections separated as follows:
+%
+%  %---- Header ----% [78 characters exactly]
+%
+%  - pointers to external APIs should be referenced as follows e.g.:
+%    Reference: R API, path/to/file.extension | path to Doxygen index.html.
+%
+%  - building command line should be referenced just before
+%    :- module mypackage.
+%  - execution command line, if relevant, must follow.
+%
+% Predicates, functions and determinism.
+%
+% Unless this proves useless or impractical, det predicates should be added
+% along with semidet predicates with appropriate and documented default values.
+% With the same caveats, both predicative and functional forms should be
+% provided in the interface. Prefer adding boilerplate to the library and
+% interface with normalized defaults to alternative options.
+%
+%-----------------------------------------------------------------------------%
