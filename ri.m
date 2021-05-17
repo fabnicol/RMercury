@@ -204,6 +204,9 @@
     ;       vecsxp               % List of vectors - array(univ) or list(array(T),...)
     ;       nilsxp.              % Null vector
 
+
+:- func transpose_array(array2d(T)) = array2d(T).
+
 % Using typeclass 'length' for a more polymorphic interface.
 % Later to be expanded with other types than 'buffer'.
 
@@ -1011,8 +1014,9 @@
 :- func apply_to_int(string, int, bool, sexp, io, io) = int.  % Tested
 :- mode apply_to_int(in, in, in, out, di, uo) = out is det.
 
-    %  apply_to_string(Function, Arg, Silent, Status, Result, !IO)
+    %  apply_to_string(Function, Arg, Silent, Result, !IO)
     %     = Exitcode
+    %  apply_to_string(Function, Arg, Silent, Result, Exitcode, !IO)
     %
     %  Apply R Function to string into an S expression Result.
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
@@ -1041,6 +1045,7 @@
 %-----------------------------------------------------------------------------%
 
     %  apply_to_<type>2d(Function, Args2d, Silent, Result, !IO) = Exitcode
+    %  apply_to<type>2d(Function, Arrgs2d, Silent, Result, Exitcode, !IO)
     %
     %  Apply R Function to array2d Args2d of type <type> into an S expression
     %  Result.
@@ -1058,26 +1063,6 @@
     %  for now.
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
     %
-
-:- pred compose_to_bool2d(list(string), array2d(bool), bool, sexp, int, io, io).   % Tested
-:- mode compose_to_bool2d(in, array_di, in, out, out, di, uo) is det.
-:- func compose_to_bool2d(list(string), array2d(bool), bool, sexp, io, io) = int.  % Tested
-:- mode compose_to_bool2d(in, array_di, in, out, di, uo) = out is det.
-
-:- pred compose_to_float2d(list(string), array2d(float), bool, sexp, int, io, io).  % Tested
-:- mode compose_to_float2d(in, array_di, in, out, out, di, uo) is det.
-:- func compose_to_float2d(list(string), array2d(float), bool, sexp, io, io) = int. % Tested
-:- mode compose_to_float2d(in, array_di, in, out, di, uo) = out is det.
-
-:- pred compose_to_int2d(list(string), array2d(int), bool, sexp, int, io, io).      % Tested
-:- mode compose_to_int2d(in, array_di, in, out, out, di, uo) is det.
-:- func compose_to_int2d(list(string), array2d(int), bool, sexp, io, io) = int.     % Tested
-:- mode compose_to_int2d(in, array_di, in, out, di, uo) = out is det.
-
-:- pred compose_to_string2d(list(string), array2d(string), bool, sexp, int, io, io). % Tested
-:- mode compose_to_string2d(in, array_di, in, out, out, di, uo) is det.
-:- func compose_to_string2d(list(string), array2d(string), bool, sexp, io, io) = int. % Tested
-:- mode compose_to_string2d(in, array_di, in, out, di, uo) = out is det.
 
 :- pred apply_to_bool2d(string, array2d(bool), bool, sexp, int, io, io).   % Tested
 :- mode apply_to_bool2d(in, array_di, in, out, out, di, uo) is det.
@@ -1098,6 +1083,33 @@
 :- mode apply_to_string2d(in, array_di, in, out, out, di, uo) is det.
 :- func apply_to_string2d(string, array2d(string), bool, sexp, io, io) = int. % Tested
 :- mode apply_to_string2d(in, array_di, in, out, di, uo) = out is det.
+
+    %  compose_to_<type>2d(Functions, Args2d, Silent, Result, !IO) = Exitcode
+    %  compose_to_<type>2d(Functions, Args2d, Silent, Result, Exitcode, !IO)
+    %
+    %  Like apply_to_<type>2d procedures above, with successive application
+    %  of each function listed in Functions. Except for the first function
+    %  applied, there is no restriction on the type domain of other functions.
+
+:- pred compose_to_bool2d(list(string), array2d(bool), bool, sexp, int, io, io).   % Tested
+:- mode compose_to_bool2d(in, array_di, in, out, out, di, uo) is det.
+:- func compose_to_bool2d(list(string), array2d(bool), bool, sexp, io, io) = int.  % Tested
+:- mode compose_to_bool2d(in, array_di, in, out, di, uo) = out is det.
+
+:- pred compose_to_float2d(list(string), array2d(float), bool, sexp, int, io, io).  % Tested
+:- mode compose_to_float2d(in, array_di, in, out, out, di, uo) is det.
+:- func compose_to_float2d(list(string), array2d(float), bool, sexp, io, io) = int. % Tested
+:- mode compose_to_float2d(in, array_di, in, out, di, uo) = out is det.
+
+:- pred compose_to_int2d(list(string), array2d(int), bool, sexp, int, io, io).      % Tested
+:- mode compose_to_int2d(in, array_di, in, out, out, di, uo) is det.
+:- func compose_to_int2d(list(string), array2d(int), bool, sexp, io, io) = int.     % Tested
+:- mode compose_to_int2d(in, array_di, in, out, di, uo) = out is det.
+
+:- pred compose_to_string2d(list(string), array2d(string), bool, sexp, int, io, io). % Tested
+:- mode compose_to_string2d(in, array_di, in, out, out, di, uo) is det.
+:- func compose_to_string2d(list(string), array2d(string), bool, sexp, io, io) = int. % Tested
+:- mode compose_to_string2d(in, array_di, in, out, di, uo) = out is det.
 
     %  apply_to_sexp(Function, Sexp, Silent, Result, !IO)
     %     = Exitcode
@@ -1125,30 +1137,31 @@
 
 :- pred compose_to_sexp(list(string), sexp, bool, sexp, int, io, io).      % Tested
 :- mode compose_to_sexp(in, in, in, out, out, di, uo) is det.
-g:- func compose_to_sexp(list(string), sexp, bool, sexp, io, io) = int.     % Tested
+:- func compose_to_sexp(list(string), sexp, bool, sexp, io, io) = int.     % Tested
 :- mode compose_to_sexp(in, in, in, out, di, uo) = out is det.
 
+    %  apply_to_univ2d(Function, Args, Silent, Result, Exitcode, !IO)
     %  apply_to_univ2d(Function, Args, Silent, Result, !IO) = Exitcode
     %
-    %  Source R Function to "matrix" Args into an S expression Result.
+    %  Apply R Function to array2d Args into an S-expression Result.
     %  Vector elements may be same-length vectors of different types.
-    %  Silent governs console output and Exitcode is the error exit code
+    %  Silent governs error output and Exitcode is the error exit code
     %  or 0 on success.
     %  Allowed vector types are:
 
     %  Mercury     R        Encoding in Types
     %  --------------------------------------
-    %  int         INTSXP   ""int""
-    %  float       REALSXP  ""float""
-    %  bool        LGLSXP  ""bool""
-    %  string      STRSXP   ""string""
+    %  int         INTSXP   int
+    %  float       REALSXP  float
+    %  bool        LGLSXP   bool
+    %  string      STRSXP   string
     %
-    %  These built-in types will be encapsuled in a univ array2d.
     %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
     %
 
+:- pred apply_to_univ2d(string, array2d(univ), bool, sexp, int, io, io).
+:- mode apply_to_univ2d(in, array_di, in, out, out, di, uo) is det.
 :- func apply_to_univ2d(string, array2d(univ), bool, sexp, io, io) = int.
-
 :- mode apply_to_univ2d(in, array_di, in, out, di, uo) = out is det.
 
     %  apply_to_univ_list_arrays(Function, Args, Silent, Status, Result, !IO)
@@ -1183,6 +1196,7 @@ g:- func compose_to_sexp(list(string), sexp, bool, sexp, io, io) = int.     % Te
 :- import_module float.
 :- import_module int.
 :- import_module math.
+:- import_module pretty_printer.
 :- import_module require.
 :- import_module string.
 :- import_module term.
@@ -3579,15 +3593,15 @@ apply_to_string_array(Code, Strings, Silent, Sexp, Errorcode, !IO) :-
 :- pragma foreign_decl("C",
 "
 void
-R_MR_APPLY_HELPER_LOGICAL(MR_ArrayPtr, MR_Integer, MR_Integer, SEXP);
+R_MR_APPLY_HELPER_LOGICAL(MR_ArrayPtr, int, MR_Integer, MR_Integer, SEXP);
 void
-R_MR_APPLY_HELPER_INTEGER(MR_ArrayPtr, MR_Integer, MR_Integer, SEXP);
+R_MR_APPLY_HELPER_INTEGER(MR_ArrayPtr, int, MR_Integer, MR_Integer, SEXP);
 void
-R_MR_APPLY_HELPER_REAL(MR_ArrayPtr, MR_Integer, MR_Integer, SEXP);
+R_MR_APPLY_HELPER_REAL(MR_ArrayPtr, int, MR_Integer, MR_Integer, SEXP);
 void
-R_MR_APPLY_HELPER_STRING(MR_ArrayPtr, MR_Integer, MR_Integer, SEXP);
+R_MR_APPLY_HELPER_STRING(MR_ArrayPtr, int, MR_Integer, MR_Integer, SEXP);
 void
-R_MR_APPLY_HELPER_VECTOR(MR_ArrayPtr, MR_Integer, MR_Integer, SEXP);
+R_MR_APPLY_HELPER_VECTOR(MR_ArrayPtr, int, MR_Integer, MR_Integer, SEXP);
 ").
 
 :- func compose_to_bool2d(list(string), array(bool), int, int,
@@ -3695,7 +3709,7 @@ compose_to_string2d(Functions, Array, Silent, Sexp, Errorcode, !.IO, !:IO) :-
 "
 inline MR_Integer
 R_MR_APPLY_HELPER(MR_Word functions, MR_ArrayPtr array, MR_Integer numlines,
-    MR_Integer numcols, MR_Bool silent, void (*f)(MR_ArrayPtr, MR_Integer,
+    MR_Integer numcols, MR_Bool silent, void (*f)(MR_ArrayPtr, int, MR_Integer,
     MR_Integer, SEXP), int sexptype, SEXP *sexpout)
 {
     SET_SILENT(silent);
@@ -3710,12 +3724,12 @@ R_MR_APPLY_HELPER(MR_Word functions, MR_ArrayPtr array, MR_Integer numlines,
         }
         for (int i = 0; i < numcols; ++i) {
             SEXP tmp_i = PROTECT(allocVector(sexptype, numlines));
-            f(array, numlines, i * numcols, tmp_i);
+            f(array, i, numlines, numcols, tmp_i);
             SET_VECTOR_ELT(arg, i, tmp_i);
         }
         int index = 0;
         while (! MR_list_is_empty(functions)) {
-            char* function = MR_list_head(functions);
+            char* function = (char*) MR_list_head(functions);
             functions = MR_list_tail(functions);
             PROTECT(arg = lang2(install(function), arg));
             ++index;
@@ -3732,12 +3746,12 @@ R_MR_APPLY_HELPER(MR_Word functions, MR_ArrayPtr array, MR_Integer numlines,
 :- pragma foreign_code("C",
 "
 inline void
-R_MR_APPLY_HELPER_LOGICAL(MR_ArrayPtr array, MR_Integer nrows,
-    MR_Integer index, SEXP vect)
+R_MR_APPLY_HELPER_LOGICAL(MR_ArrayPtr array, int col, MR_Integer nrows,
+    MR_Integer ncols, SEXP vect)
 {
     Rboolean *L = (Rboolean*) LOGICAL(vect);
-    for (int j = 0; j < nrows; ++j)
-       L[j]  = (Rboolean) array->elements[index + j];
+    for (int row = 0; row < nrows; ++row)
+       L[row]  = (Rboolean) array->elements[ncols * row + col];
     /* MR_YES = O = FALSE = (Rboolean) FALSE */
 }
 ").
@@ -3745,36 +3759,36 @@ R_MR_APPLY_HELPER_LOGICAL(MR_ArrayPtr array, MR_Integer nrows,
 :- pragma foreign_code("C",
 "
 inline void
-R_MR_APPLY_HELPER_INTEGER(MR_ArrayPtr array, MR_Integer nrows,
-    MR_Integer index, SEXP vect)
+R_MR_APPLY_HELPER_INTEGER(MR_ArrayPtr array, int col, MR_Integer nrows,
+    MR_Integer ncols, SEXP vect)
 {
     int *I = INTEGER(vect);
-    for (int j = 0; j < nrows; ++j)
-        I[j]  = array->elements[index + j];
+    for (int row = 0; row < nrows; ++row)
+        I[row] = (int) array->elements[ncols * row + col];
 }
 ").
 
 :- pragma foreign_code("C",
 "
 inline void
-R_MR_APPLY_HELPER_REAL(MR_ArrayPtr array, MR_Integer nrows,
-    MR_Integer index, SEXP vect)
+R_MR_APPLY_HELPER_REAL(MR_ArrayPtr array, int col, MR_Integer nrows,
+    MR_Integer ncols, SEXP vect)
 {
     MR_Float *R = REAL(vect);
-    for (int j = 0; j < nrows; ++j)
-        R[j]  = (double) MR_word_to_float(array->elements[index + j]);
+    for (int row = 0; row < nrows; ++row)
+        R[row]  = (double) MR_word_to_float(array->elements[ncols * row + col]);
 }
 ").
 
 :- pragma foreign_code("C",
 "
 inline void
-R_MR_APPLY_HELPER_STRING(MR_ArrayPtr array, MR_Integer nrows,
-    MR_Integer index, SEXP vect)
+R_MR_APPLY_HELPER_STRING(MR_ArrayPtr array, int col, MR_Integer nrows,
+    MR_Integer ncols, SEXP vect)
 {
-    for (int j = 0; j < nrows; ++j)
-        SET_STRING_ELT(vect, j,
-            Rf_mkChar((const char*) array->elements[index + j]));
+    for (int row = 0; row < nrows; ++row)
+        SET_STRING_ELT(vect, row,
+            Rf_mkChar((const char*) array->elements[ncols * row + col]));
 }
 ").
 
@@ -3845,7 +3859,9 @@ if (SexpIn == NULL
 } else {
     SEXP tmp = (SEXP) SexpIn;
     PROTECT(tmp = lang2(install(Function), tmp));
-    SexpOut = R_tryEval(tmp, R_GlobalEnv, &Errorcode);
+    int errorcode;
+    SexpOut = R_tryEval(tmp, R_GlobalEnv, &errorcode);
+    Errorcode = (MR_Integer) errorcode;
     UNPROTECT(1);
 }
 RESTORE_VERBOSITY;
@@ -3854,19 +3870,42 @@ RESTORE_VERBOSITY;
 %  Apply R Function of R data frame Arg with column types either logical,
 %  integral, numeric or character (string) into an S expression Result.
 
+apply_to_univ2d(Code, Argv, Silent, Result, Exitcode, !.IO, !:IO) :-
+    apply_to_univ2d(Code, Argv, Silent, Result, !.IO, !:IO) = Exitcode.
+
+% Unfortunately, this is sub-optimal. One would like not to have to transpose.
+% This is forced by the requirement of converting Mercury row-major order for
+% array2d into R column-major order for data frames.
+% The other method would be to to pass data without transposing in Mercury, as
+% strings, and coerce types in R row by row, then transpose in R.  This would
+% be probably quicker but might cause reliability issues.
+% When all types are the same, it may be considered to use the above
+% procedures.  When all types are numeric, it may be considered to cast to
+% double, use the above procedures for float type, then cast to integer or
+% boolean if necessary in R.  These special cases will be dealt with later.
+% Technocil note: point P(r,c) -> Q(c, r)
+%    i.e       r * NumCols + c -> c  * NumRows + r
+
 apply_to_univ2d(Code, Argv, Silent, Result, !.IO, !:IO) = Exitcode :-
-    univ_to_type_name(Argv, NumRows, NumCols, Types),
-    Argv = array2d(_, _, Array),
-    apply_to_univ2d_helper(Code, NumRows, NumCols, Types, Array, Silent,
-        Result, !.IO, !:IO) = Exitcode.
+    univ_to_type_name(Argv, Types),
+    ( if Silent = no then
+        write_string("Column types:  ", !.IO, !:IO),
+        write_doc(array_to_doc(Types), !.IO, !:IO),
+        nl(!.IO, !:IO)
+    else
+        true
+    ),
+    Argv = array2d(NumRows, NumCols, Array),
+    apply_to_univ2d_helper(Code, NumRows, NumCols, Types,
+                           transpose_array(Array, NumRows, NumCols),
+                           Silent, Result, !.IO, !:IO) = Exitcode.
 
 % Getting a 1-row array of type names.
 
-:- pred univ_to_type_name(array2d(univ)::in, int::out, int::out,
-            array(string)::array_uo) is det.
+:- pred univ_to_type_name(array2d(univ)::array_di, array(string)::array_uo) is det.
 
-univ_to_type_name(A, NumRows, NumCols, Typenames) :-
-    bounds(A, NumRows, NumCols),
+univ_to_type_name(A, Typenames) :-
+    bounds(A, _, NumCols),
     Typenames =  array(map(to_type_name(A), 0 `..` (NumCols - 1))).
 
 :- func to_type_name(array2d(univ), int) = string.
@@ -3874,7 +3913,29 @@ univ_to_type_name(A, NumRows, NumCols, Typenames) :-
 :- mode to_type_name(in, in) = out is det.
 
 to_type_name(A, J) = Typename :-
-    Typename = type_name(univ_type(A ^ elem(0, J))).
+    Typename = type_name(univ_type(lookup(A, 1, J))).
+
+transpose_array(Array) = TransposedArray :-
+    Array = array2d(NumRows, NumCols, A),
+    transpose_array(A, NumRows, NumCols) = TA,
+    TransposedArray = array2d(NumRows, NumCols, TA).
+
+:- func transpose_array(array(T), int, int) = array(T).
+
+% Note: The implementation is inefficient. One would wish not to deep-copy
+% array elements and just use index mappings, which would be passed to
+% univ_to_univ2d_helper. To be revised.
+
+transpose_array(Array, NumRows, NumCols) = TransposedArray :-
+    array(map(lookup(Array),
+        map(transpose_index(NumRows, NumCols),
+            0 `..` (NumRows * NumCols - 1))))
+        = TransposedArray.
+
+:- func transpose_index(int, int, int) = int.
+
+transpose_index(NumRows, NumCols, Index) = Index / NumCols
++ (Index mod NumCols) * NumRows.
 
 :- func apply_to_univ2d_helper(string, int, int,
     array(string), array(univ), bool,
@@ -3895,60 +3956,65 @@ SET_SILENT(Silent);
 SEXP arg;
 SEXP tmp;
 
-arg = PROTECT(allocVector(VECSXP, NumCols));
+arg = PROTECT(allocVector(VECSXP, NumRows));
 if (arg == NULL) {
     Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
 } else {
     MR_ArrayPtr Types_ptr = (MR_ArrayPtr) Types;
-    MR_Integer size = Types_ptr->size;
     const char **elements = (const char**) Types_ptr->elements;
-    MR_ArrayPtr Array_i_ptr = (MR_ArrayPtr) Array;
+    MR_ArrayPtr Array_ptr = (MR_ArrayPtr) Array;
 
-    for (int i = 0; i < NumCols; ++i) {
-        if (strcmp(elements[i], ""string"")) {
-            SEXP Sexp_i = PROTECT(allocVector(STRSXP, NumRows));
+    for (int i = 0; i < NumRows; ++i) {
+
+        SEXP Sexp_i;
+        if (strcmp(elements[i], ""string"") == 0) {
+            Sexp_i = PROTECT(allocVector(STRSXP, NumCols));
             if (Sexp_i == NULL)
                 Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
             else
-                R_MR_APPLY_HELPER_STRING(Array_i_ptr, NumRows,
-                    i * NumCols, Sexp_i);
-        } else if (strcmp(elements[i], ""int"")) {
-            SEXP Sexp_i = PROTECT(allocVector(INTSXP, NumRows));
+                R_MR_APPLY_HELPER_STRING(Array_ptr, i,
+                    NumCols, NumRows, Sexp_i);
+        } else if (strcmp(elements[i], ""int"") == 0) {
+            Sexp_i = PROTECT(allocVector(INTSXP, NumCols));
             if (Sexp_i == NULL)
                 Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
              else
-                 R_MR_APPLY_HELPER_INTEGER(Array_i_ptr, NumRows,
-                     i * NumCols, Sexp_i);
-        } else if (strcmp(elements[i], ""float"")) {
-            SEXP Sexp_i = PROTECT(allocVector(REALSXP, NumRows));
+                 R_MR_APPLY_HELPER_INTEGER(Array_ptr, i,
+                    NumCols, NumRows, Sexp_i);
+        } else if (strcmp(elements[i], ""float"") == 0) {
+            Sexp_i = PROTECT(allocVector(REALSXP, NumCols));
             if (Sexp_i == NULL)
                 Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
             else
-                R_MR_APPLY_HELPER_REAL(Array_i_ptr, NumRows,
-                    i * NumCols, Sexp_i);
-        } else if (strcmp(elements[i], ""bool"")) {
-            SEXP Sexp_i = PROTECT(allocVector(LGLSXP, NumRows));
+                R_MR_APPLY_HELPER_REAL(Array_ptr, i,
+                    NumCols, NumRows, Sexp_i);
+        } else if (strcmp(elements[i], ""bool"") == 0) {
+            Sexp_i = PROTECT(allocVector(LGLSXP, NumCols));
             if (Sexp_i == NULL)
                 Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
             else
-                R_MR_APPLY_HELPER_LOGICAL(Array_i_ptr, NumRows,
-                    i * NumCols, Sexp_i);
+                R_MR_APPLY_HELPER_LOGICAL(Array_ptr, i,
+                   NumCols, NumRows, Sexp_i);
         } else {
                 Exitcode = R_MR_CALL_ERROR;
         }
+
+        SET_VECTOR_ELT(arg, i, Sexp_i);
     }
 }
 
-if (Exitcode != R_MR_CALL_ERROR
-       && Exitcode != R_MR_SIZE_VECT2D_ALLOC_ERROR) {
-    PROTECT(tmp = lang2(install(Function), arg));
+//if (Exitcode != R_MR_CALL_ERROR
+//       && Exitcode != R_MR_SIZE_VECT2D_ALLOC_ERROR) {
+    PROTECT(tmp = lang2(install(""data.frame""), arg));
+    PROTECT(tmp = lang2(install(""t""), tmp));
+    PROTECT(tmp = lang2(install(Function), tmp));
     int exitcode = 0;
     E = R_tryEval(tmp, R_GlobalEnv, &exitcode);
     Exitcode = exitcode;
-    UNPROTECT(1);          /* tmp */
+    UNPROTECT(3);          /* tmp */
     UNPROTECT(NumCols);    /* column vectors */
     UNPROTECT(1);          /* arg */
-}
+//}
 RESTORE_VERBOSITY;
 ").
 
@@ -3990,7 +4056,7 @@ to_type_name_list(A) = Typename :-
 :- pragma foreign_decl("C",
 "void
 R_MR_APPLY_HELPER_2D(MR_Word L, MR_Integer nrows, MR_Integer sum_nrows,
-    void (*f)(MR_ArrayPtr, MR_Integer, MR_Integer, SEXP),
+    void (*f)(MR_ArrayPtr, int, MR_Integer, MR_Integer, SEXP),
     int sexptype, MR_Integer *Exitcode, SEXP col);
 ").
 
@@ -4069,13 +4135,13 @@ errno = 0;
 "
 inline void
 R_MR_APPLY_HELPER_2D(MR_Word L, MR_Integer nrows, MR_Integer sum_nrows,
-    void (*f)(MR_ArrayPtr, MR_Integer, MR_Integer, SEXP),
+    void (*f)(MR_ArrayPtr, int, MR_Integer, MR_Integer, SEXP),
     int sexptype, MR_Integer *Exitcode, SEXP col)
 {
     col = allocVector(sexptype, (int) nrows);
     R_PreserveObject(col);
     MR_ArrayPtr array = (MR_ArrayPtr) MR_list_head(L);
-    f(array, nrows, sum_nrows, col);
+    f(array, 0, nrows, sum_nrows, col);
     L = MR_list_tail(L);
 }
 ").

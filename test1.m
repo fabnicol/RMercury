@@ -51,6 +51,7 @@
 :- import_module string.
 :- import_module ri.
 :- import_module bool.
+:- import_module univ.
 :- import_module array, array2d.
 
 main(!IO) :-
@@ -72,9 +73,9 @@ main(!IO) :-
     lookup(E6, 0, S2),
     writeln_item(S2, !IO),
     bool_vect("c(FALSE, TRUE)", E7,!IO),
-    lookup_bool_vect(bool_buffer_det(E7), 1, S3),
-    % issue with lookup(E7, 1, S3)
-    writeln_rbool(S3, !IO),
+    % lookup_bool_vect(bool_buffer_det(E7), 1, S3), : OK
+    lookup(E7, 1, S3),
+    writeln_item(S3, !IO),
     lookup_bool_vect_size(bool_buffer_det(E7), S4),
     write_int(S4, !IO),nl(!IO),
     lookup_buffer_vect_size(E7, S5),
@@ -187,74 +188,177 @@ main(!IO) :-
     writeln_item(S45a, !IO),
     writeln_item(S45b, !IO),
     writeln_item(S45c, !IO),
-    apply_to_int_array("sum", array([1,2,3,4]),yes, S46, !.IO, !:IO) = Errorcode,
+    apply_to_int_array("sum", array([1,2,3,4]),yes, S46, Errorcode, !IO),
     write_int(Errorcode, !IO), nl(!IO),
     write_int(to_int_det(S46), !IO),nl(!IO),
 
-    apply_to_string_array("cat", array(["abc", "def"]), yes, _, _, !.IO, !:IO),nl(!IO),
-    apply_to_bool_array("print", array([yes, no]), yes, _, _, !.IO, !:IO),
-    apply_to_float_array("print", array([1.15, 3.2]), yes, _, _, !.IO, !:IO),
-    apply_to_int_array("print", array([1, 2]), yes, _, _, !.IO, !:IO),
+    apply_to_string_array("cat", array(["abc", "def"]), yes, _, _, !IO),nl(!IO),
+    apply_to_bool_array("print", array([yes, no]), yes, _, _, !IO),
+    apply_to_float_array("print", array([1.15, 3.2]), yes, _, _, !IO),
+    apply_to_int_array("print", array([1, 2]), yes, _, _, !IO),
 
-    apply_to_string("cat", "abc", yes, _, _, !.IO, !:IO),nl(!IO),
-    apply_to_bool("print", yes, yes,  _, _, !.IO, !:IO),
-    apply_to_float("print",1.15, yes, _, _, !.IO, !:IO),
-    apply_to_int("print", 1, yes, _, _, !.IO, !:IO),
+    apply_to_string("cat", "abc", yes, _, _, !IO),nl(!IO),
+    apply_to_bool("print", yes, yes,  _, _, !IO),
+    apply_to_float("print",1.15, yes, _, _, !IO),
+    apply_to_int("print", 1, yes, _, _, !IO),
     % For graphics, there is still to connect to X
     %apply_to_float("plot", array([0.0,1.0,2.0,3.0,5.5]), no, _, !.IO, !:IO) = _,
     % same with source
     source_string("print(sum(1:50))", !IO),
     apply_to_string2d("unlist", array2d([["cat", "miaow"], ["dog", "waow"]]),
-                      yes, S47, !.IO, !:IO) = _,
+                      yes, S47, _, !IO),
+
     % We would like to fit in R options, like collapse = " "
     apply_to_sexp("paste0", S47, no, S48, _, !IO),
     write_string(to_string_det(S48), !IO),
     apply_to_bool2d("print", array2d([[no, yes], [yes, yes]]),
-                     yes, _, !.IO, !:IO) = _,
+                      yes, _, _, !IO),
     apply_to_int2d("print", array2d([[1, 3], [2, 4]]),
-                   yes, _, !.IO, !:IO) = _,
+                   yes, _, _, !IO),
     % This fails. We have to teach the R C FFI to load libraries. How?
     % apply_to_float2d("data.table::data.table", array2d([[1.15, 3.15], [2.15, 4.15]]),
     %               yes, _, !.IO, !:IO) = _,
     compose_to_float2d(["log", "sum", "unlist"],
                        array2d([[1.15, 3.15],
                                 [2.15, 4.15]]),
-                     yes, S50, _, !.IO, !:IO),
+                     yes, S50, _, !IO),
     apply_to_sexp("print", S50, no, S51, _, !IO), nl(!IO),
     compose_to_sexp(["print", "exp", "exp"], S50, no, S52, _, !IO), nl(!IO),
-    write_float(to_float_det(S52), !IO).
+    write_float(to_float_det(S52), !IO), nl(!IO),
+    compose_to_float2d(["print", "data.frame"],
+                       array2d([[1.15, 3.15],
+                                [2.15, 4.15]]),
+                       yes, _, _, !IO),
+    compose_to_float2d(["print", "sum", "colSums", "data.frame"],
+                       array2d([[1.15, 3.15],
+                                [2.15, 4.15]]),
+                       yes, S53, _, !IO),
+    % Summing a numeric column table
+    % Using R base:
+    apply_to_string("read.csv", "a.csv", yes, S55, _, !IO),
+    compose_to_sexp(["print", "sum", "unlist"],
+                    S55, yes, S56, _ , !IO),
+    % Using data.table. Currently source_ must be used, as apply does not load
+    % libraries yet:
+    source_string("data.table::fread(""a.csv"")[, .(sum(x))] [[1]]", S57, !IO),
+    apply_to_sexp("print", S57, yes, _, _, !IO),
+    apply_to_string2d("unlist", array2d([["cat", "miaow"],
+                                         ["dog", "waow"]]),
+                  yes, S58, _, !IO),
+    apply_to_sexp("print", S58, no, _, _, !IO), % [1] "cat" "dog" "miaow" "waow"
+    apply_to_string2d("unlist", transpose_array(
+                                    array2d([["cat", "miaow"],
+                                             ["dog", "waow"]])),
+                      yes, S59, _, !IO),
+    apply_to_sexp("print", S59, no, _, _, !IO). % [1] "cat" "miaow" "dog" "waow"
+    % Note: Mercury array2d is row-major while R is column-major in data.frames.
+    % This may be confusing. TODO: consider some sort of transpose.
+    % The predicate below needs some doing: one would need to export univ_value
+    % to C for it to work.
+    % apply_to_univ2d("print",
+    %                array2d([[univ(1), univ("a"), univ(3.0)],
+    %                         [univ(2), univ("bc"), univ(4.2)]]),
+    %                no, _, _, !IO).
+
 
 :- initialise start_R/2.
 
 :- finalise shutdown_R/2.  %  or end_R/2
 
-% A = array(["R", "--no-save", "--gui=none", "--silent"]),
-% start_R(no, Exitcode, !IO),
-% write(Exitcode, !IO),
-% end_R(no, no, Exitcode2, !IO),
-
-
-%% Test Output:
-%  *** Mercury runtime: caught segmentation violation ***
-% cause: unknown
-% PC at signal: 94262267084616 (55bb24f1ff48)
-% address involved: (nil)
-% This may have been caused by a stack overflow, due to unbounded recursion.
-% exiting from signal handler
-
-% Debugging process (in progress)
-% -------------------------------
-% Note:this is a first test (1st May 2021).
-
-% Second test: OK: correct start_R (do not allocate string on the stack)
-% and eval_int (double R init + cannot presume Rf_isType from FFI MR_Word.
-
-% Third test:
-% + tested: start_R, end_R, eval_<type> (alone).
-% Found oddly buggy: shutdown_R, unexpected unterminated " issue.
-% Issue also found with RInside (Rcpp): end_R does not reset initialization
-% of R server to zero: "R is already initialized". TODO: find a way to.
-
-% Test #4
-% Fixed eval_<type>. Fixed " issue. Add finalise/initialise decls with
-% start_R/2, end_R/2 or shutdown_R/2.
+% Output:
+%
+% 8
+% FALSE
+% 0.2
+% abcs
+% abcd
+% 1234
+% 1234.2
+% TRUE
+% 2
+% 2
+% bcf
+% 0
+% "Now bool:"
+% TRUE
+% this string: b
+% this int: 10000
+% This is an example
+% 33
+% 34.0
+% TRUE
+% FALSE
+% 56.0
+% 842
+% Now again a string!
+% 1
+% Now again a string! is a string buffer
+% Now again a string!
+% FALSE
+% 2.0
+% 1.0
+% 0.0
+% 2.0
+% 1.0
+% 0.0
+% abc
+% def
+%
+% abc
+% def
+%
+% 10
+% 20
+% 0
+% 10
+% 20
+% 0
+% TRUE
+% FALSE
+% FALSE
+% TRUE
+% FALSE
+% FALSE
+% 0
+% 10
+% abc def
+% [1]  TRUE FALSE
+% [1] 1.15 3.20
+% [1] 1 2
+% abc
+% [1] TRUE
+% [1] 1.15
+% [1] 1
+% [1] 1275
+% cat[[1]]
+% [1] FALSE  TRUE
+%
+% [[2]]
+% [1] TRUE TRUE
+%
+% [[1]]
+% [1] 1 2
+%
+% [[2]]
+% [1] 3 4
+%
+% [1] 2.360854
+%
+% [1] 40134.84
+%
+% 40134.83743087578
+% c.1.15..2.15. c.3.15..4.15.
+% 1          1.15          3.15
+% 2          2.15          4.15
+% [1] 10.6
+% [1] 9993949
+% [1] 9993949
+% [1] "cat"   "dog"   "miaow" "waow"
+% [1] "cat"   "miaow" "dog"   "waow"
+%
+% real	0m0,559s
+% user	0m0,497s
+% sys	0m0,057s
+%
+% Compilation finished at Mon May 17 05:52:19
+%
