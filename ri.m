@@ -1062,31 +1062,31 @@
 
 :- pred apply_to_bool2d(string, array2d(bool), bool, sexp, int, io, io).
 % Tested
-:- mode apply_to_bool2d(in, array_di, in, out, out, di, uo) is det.
+:- mode apply_to_bool2d(in, array2d_di, in, out, out, di, uo) is det.
 :- func apply_to_bool2d(string, array2d(bool), bool, sexp, io, io) = int.
 % Tested
-:- mode apply_to_bool2d(in, array_di, in, out, di, uo) = out is det.
+:- mode apply_to_bool2d(in, array2d_di, in, out, di, uo) = out is det.
 
 :- pred apply_to_float2d(string, array2d(float), bool, sexp, int, io, io).
 % Tested
-:- mode apply_to_float2d(in, array_di, in, out, out, di, uo) is det.
+:- mode apply_to_float2d(in, array2d_di, in, out, out, di, uo) is det.
 :- func apply_to_float2d(string, array2d(float), bool, sexp, io, io) = int.
 % Tested
-:- mode apply_to_float2d(in, array_di, in, out, di, uo) = out is det.
+:- mode apply_to_float2d(in, array2d_di, in, out, di, uo) = out is det.
 
 :- pred apply_to_int2d(string, array2d(int), bool, sexp, int, io, io).
 % Tested
-:- mode apply_to_int2d(in, array_di, in, out, out, di, uo) is det.
+:- mode apply_to_int2d(in, array2d_di, in, out, out, di, uo) is det.
 :- func apply_to_int2d(string, array2d(int), bool, sexp, io, io) = int.
 % Tested
-:- mode apply_to_int2d(in, array_di, in, out, di, uo) = out is det.
+:- mode apply_to_int2d(in, array2d_di, in, out, di, uo) = out is det.
 
 :- pred apply_to_string2d(string, array2d(string), bool, sexp, int, io, io).
 % Tested
-:- mode apply_to_string2d(in, array_di, in, out, out, di, uo) is det.
+:- mode apply_to_string2d(in, array2d_di, in, out, out, di, uo) is det.
 :- func apply_to_string2d(string, array2d(string), bool, sexp, io, io) = int.
 % Tested
-:- mode apply_to_string2d(in, array_di, in, out, di, uo) = out is det.
+:- mode apply_to_string2d(in, array2d_di, in, out, di, uo) = out is det.
 
     %  compose_to_<type>2d(Functions, Args2d, Silent, Result, !IO) = Exitcode
     %  compose_to_<type>2d(Functions, Args2d, Silent, Result, Exitcode, !IO)
@@ -1097,31 +1097,31 @@
 
 :- pred compose_to_bool2d(list(string), array2d(bool), bool, sexp, int, io, io).
 % Tested
-:- mode compose_to_bool2d(in, array_di, in, out, out, di, uo) is det.
+:- mode compose_to_bool2d(in, array2d_di, in, out, out, di, uo) is det.
 :- func compose_to_bool2d(list(string), array2d(bool), bool, sexp, io, io)
 = int.  % Tested
-:- mode compose_to_bool2d(in, array_di, in, out, di, uo) = out is det.
+:- mode compose_to_bool2d(in, array2d_di, in, out, di, uo) = out is det.
 
 :- pred compose_to_float2d(list(string), array2d(float), bool,
     sexp, int, io, io).  % Tested
-:- mode compose_to_float2d(in, array_di, in, out, out, di, uo) is det.
+:- mode compose_to_float2d(in, array2d_di, in, out, out, di, uo) is det.
 :- func compose_to_float2d(list(string), array2d(float), bool,
     sexp, io, io) = int. % Tested
-:- mode compose_to_float2d(in, array_di, in, out, di, uo) = out is det.
+:- mode compose_to_float2d(in, array2d_di, in, out, di, uo) = out is det.
 
 :- pred compose_to_int2d(list(string), array2d(int), bool, sexp, int, io, io).
 % Tested
-:- mode compose_to_int2d(in, array_di, in, out, out, di, uo) is det.
+:- mode compose_to_int2d(in, array2d_di, in, out, out, di, uo) is det.
 :- func compose_to_int2d(list(string), array2d(int), bool, sexp, io, io) = int.
 % Tested
-:- mode compose_to_int2d(in, array_di, in, out, di, uo) = out is det.
+:- mode compose_to_int2d(in, array2d_di, in, out, di, uo) = out is det.
 
 :- pred compose_to_string2d(list(string), array2d(string), bool,
     sexp, int, io, io). % Tested
-:- mode compose_to_string2d(in, array_di, in, out, out, di, uo) is det.
+:- mode compose_to_string2d(in, array2d_di, in, out, out, di, uo) is det.
 :- func compose_to_string2d(list(string), array2d(string), bool,
     sexp, io, io) = int. % Tested
-:- mode compose_to_string2d(in, array_di, in, out, di, uo) = out is det.
+:- mode compose_to_string2d(in, array2d_di, in, out, di, uo) = out is det.
 
     %  apply_to_sexp(Function, Sexp, Silent, Result, !IO)
     %     = Exitcode
@@ -1139,7 +1139,7 @@
     %     = Errorcode
     %  compose_to_sexp(Functions, Sexp, Silent, Result, Errorcode, !IO)
     %
-    %  Compose R list of Functions to an S expression
+    %  Successively apply an R list of Functions to an S expression
     %  into an S expression Result. Errorcode is the sum of successive
     %  error code output by successive application of each function.
     %  Example:
@@ -1174,9 +1174,25 @@
     %
 
 :- pred apply_to_univ2d(string, array2d(univ), bool, sexp, int, io, io).
-:- mode apply_to_univ2d(in, array_di, in, out, out, di, uo) is det.
+:- mode apply_to_univ2d(in, array2d_di, in, out, out, di, uo) is det.
 :- func apply_to_univ2d(string, array2d(univ), bool, sexp, io, io) = int.
-:- mode apply_to_univ2d(in, array_di, in, out, di, uo) = out is det.
+:- mode apply_to_univ2d(in, array2d_di, in, out, di, uo) = out is det.
+
+    %  compose_to_univ2d(Functions, Args, Silent, Result, !IO)
+    %     = Errorcode
+    %  compose_to_univ2d(Functions, Args, Silent, Result, Errorcode, !IO)
+    %
+    %  Successively apply an R list of Functions to a 2d array Args
+    %  into an S expression Result. Errorcode is the sum of successive
+    %  error code output by successive application of each function.
+    %  Example:
+    %  compose_to_univ2d(["print", "unlist", "colSums"], A, yes, S1, Err, !IO)
+    %  Reference: R API, Embedding/RParseEval.c,embeddedRCall.c
+
+:- pred compose_to_univ2d(list(string), array2d(univ), bool, sexp, int, io, io).
+:- mode compose_to_univ2d(in, array2d_di, in, out, out, di, uo) is det.
+:- func compose_to_univ2d(list(string), array2d(univ), bool, sexp, io, io) = int.
+:- mode compose_to_univ2d(in, array2d_di, in, out, di, uo) = out is cc_multi.
 
     %  apply_to_univ_list_arrays(Function, Args, Silent, Status, Result, !IO)
     %      = Exitcode
@@ -1339,17 +1355,17 @@ transpose_index(NumRows, Size, Index) = Result :-
 #include <stdint.h> /* For int8_t */
 
 enum {
-    R_MR_CALL_ERROR,
-    R_MR_CAST_ERROR,
-    R_MR_FILE_ERROR,
-    R_MR_SOURCE_YES,
-    R_MR_SOURCE_NO,
-    R_MR_SPRINTF_ERROR,
-    R_MR_NULL_STRING,
-    R_MR_NULL_ARGS,
-    R_MR_PARSE_ERROR,
-    R_MR_MAX_VECT_ERROR,
-    R_MR_SIZE_VECT2D_ALLOC_ERROR
+    R_MR_CALL_ERROR = 1,
+    R_MR_CAST_ERROR = 2,
+    R_MR_FILE_ERROR = 4,
+    R_MR_SOURCE_YES = 8,
+    R_MR_SOURCE_NO  = 16,
+    R_MR_SPRINTF_ERROR = 32,
+    R_MR_NULL_STRING = 64,
+    R_MR_NULL_ARGS = 128,
+    R_MR_PARSE_ERROR = 256,
+    R_MR_MAX_VECT_ERROR = 512,
+    R_MR_SIZE_VECT2D_ALLOC_ERROR = 1024
 };
 
 enum { R_MR_BOOL, R_MR_INTEGER, R_MR_FLOAT, R_MR_STRING, R_MR_WORD };
@@ -3771,6 +3787,7 @@ R_MR_APPLY_HELPER(MR_Word functions, MR_ArrayPtr array, MR_Integer numlines,
             f(array, i, numlines, numcols, tmp_i);
             SET_VECTOR_ELT(arg, i, tmp_i);
         }
+
         int index = 0;
         while (! MR_list_is_empty(functions)) {
             char* function = (char*) MR_list_head(functions);
@@ -3917,23 +3934,10 @@ RESTORE_VERBOSITY;
 %  Apply R Function of R data frame Arg with column types either logical,
 %  integral, numeric or character (string) into an S expression Result.
 
-apply_to_univ2d(Code, Argv, Silent, Result, Exitcode, !.IO, !:IO) :-
-    apply_to_univ2d(Code, Argv, Silent, Result, !.IO, !:IO) = Exitcode.
+compose_to_univ2d(Functions, Argv, Silent, Result, !.IO, !:IO) = Exitcode :-
+    compose_to_univ2d(Functions, Argv, Silent, Result, Exitcode, !.IO, !:IO).
 
-% Unfortunately, this is sub-optimal. One would like not to have to transpose.
-% This is forced by the requirement of converting Mercury row-major order for
-% array2d into R column-major order for data frames.
-% The other method would be to to pass data without transposing in Mercury, as
-% strings, and coerce types in R row by row.  This would
-% be probably quicker but might cause reliability issues.
-% When all types are the same, it may be considered to use the above
-% procedures.  When all types are numeric, it may be considered to cast to
-% double, use the above procedures for float type, then cast to integer or
-% boolean if necessary in R.  These special cases will be dealt with later.
-% Technical note: point P(r,c) -> Q(c, r)
-%    i.e       r * NumCols + c -> c  * NumRows + r
-
-apply_to_univ2d(Code, Argv, Silent, Result, !.IO, !:IO) = Exitcode :-
+compose_to_univ2d(Functions, Argv, Silent, Result, Exitcode, !.IO, !:IO) :-
     univ_to_type_name(Argv, Types),
     ( if Silent = no then
         write_string("Column types:  ", !.IO, !:IO),
@@ -3943,9 +3947,8 @@ apply_to_univ2d(Code, Argv, Silent, Result, !.IO, !:IO) = Exitcode :-
         true
     ),
     Argv = array2d(NumRows, NumCols, Array),
-    apply_to_univ2d_helper(Code, NumRows, NumCols, Types,
-                           transpose_array(Array, NumRows),
-                           Silent, Result, !.IO, !:IO) = Exitcode.
+    compose_to_univ2d_helper(reverse(Functions), NumRows, NumCols, Types, Array,
+        Silent, Result, Exitcode, !.IO, !:IO).
 
 % Getting a 1-row array of type names.
 
@@ -3963,26 +3966,25 @@ univ_to_type_name(A, Typenames) :-
 to_type_name(A, J) = Typename :-
     Typename = type_name(univ_type(lookup(A, 1, J))).
 
-:- func apply_to_univ2d_helper(string, int, int,
+:- pred compose_to_univ2d_helper(list(string), int, int,
     array(string), array(univ), bool,
-    sexp, io, io) = int.
+    sexp, int, io, io).
 
-:- mode apply_to_univ2d_helper(in, in, in,
+:- mode compose_to_univ2d_helper(in, in, in,
     array_di, array_di, in,
-    out, di, uo) = out is det.
+    out, out, di, uo) is det.
 
 :- pragma foreign_proc("C",
-    apply_to_univ2d_helper(Function::in, NumRows::in, NumCols::in,
+    compose_to_univ2d_helper(Functions::in, NumRows::in, NumCols::in,
         Types::array_di, Array::array_di, Silent::in,
-        E::out, IO0::di, IO::uo) = (Exitcode::out),
+        E::out, Exitcode::out, IO0::di, IO::uo),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
 SET_SILENT(Silent);
 SEXP arg;
-SEXP tmp;
-
-arg = PROTECT(allocVector(VECSXP, NumRows));
+Exitcode = 0;
+arg = PROTECT(allocVector(VECSXP, NumCols));
 if (arg == NULL) {
     Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
 } else {
@@ -3990,37 +3992,40 @@ if (arg == NULL) {
     const char **elements = (const char**) Types_ptr->elements;
     MR_ArrayPtr Array_ptr = (MR_ArrayPtr) Array;
 
-    for (int i = 0; i < NumRows; ++i) {
+    for (int i = 0; i < NumCols; ++i) {
 
         SEXP Sexp_i;
         if (strcmp(elements[i], ""string"") == 0) {
-            Sexp_i = PROTECT(allocVector(STRSXP, NumCols));
+            Sexp_i = PROTECT(allocVector(STRSXP, NumRows));
             if (Sexp_i == NULL)
                 Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
             else
-                R_MR_APPLY_HELPER_STRING(Array_ptr, i,
-                    NumCols, NumRows, Sexp_i);
+                R_MR_APPLY_UNIV_HELPER_STRING(Array_ptr, i,
+                    NumRows, NumCols, Sexp_i);
         } else if (strcmp(elements[i], ""int"") == 0) {
-            Sexp_i = PROTECT(allocVector(INTSXP, NumCols));
+            Sexp_i = PROTECT(allocVector(INTSXP, NumRows));
             if (Sexp_i == NULL)
                 Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
              else
-                 R_MR_APPLY_HELPER_INTEGER(Array_ptr, i,
-                    NumCols, NumRows, Sexp_i);
+                 R_MR_APPLY_UNIV_HELPER_INTEGER(Array_ptr, i,
+                    NumRows, NumCols, Sexp_i);
         } else if (strcmp(elements[i], ""float"") == 0) {
-            Sexp_i = PROTECT(allocVector(REALSXP, NumCols));
+            Sexp_i = PROTECT(allocVector(REALSXP, NumRows));
             if (Sexp_i == NULL)
                 Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
             else
-                R_MR_APPLY_HELPER_REAL(Array_ptr, i,
-                    NumCols, NumRows, Sexp_i);
-        } else if (strcmp(elements[i], ""bool"") == 0) {
-            Sexp_i = PROTECT(allocVector(LGLSXP, NumCols));
+                R_MR_APPLY_UNIV_HELPER_REAL(Array_ptr, i,
+                    NumRows, NumCols, Sexp_i);
+        } else if (strcmp(elements[i], ""bool.bool"") == 0 ||
+                   strcmp(elements[i], ""bool"") == 0) {
+            /* Normally, bool.bool. Allowing for possible future changes */
+
+            Sexp_i = PROTECT(allocVector(LGLSXP, NumRows));
             if (Sexp_i == NULL)
                 Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
             else
-                R_MR_APPLY_HELPER_LOGICAL(Array_ptr, i,
-                   NumCols, NumRows, Sexp_i);
+                R_MR_APPLY_UNIV_HELPER_LOGICAL(Array_ptr, i,
+                   NumRows, NumCols, Sexp_i);
         } else {
                 Exitcode = R_MR_CALL_ERROR;
         }
@@ -4029,20 +4034,101 @@ if (arg == NULL) {
     }
 }
 
-//if (Exitcode != R_MR_CALL_ERROR
-//       && Exitcode != R_MR_SIZE_VECT2D_ALLOC_ERROR) {
-    PROTECT(tmp = lang2(install(""data.frame""), arg));
-    PROTECT(tmp = lang2(install(""t""), tmp));
-    PROTECT(tmp = lang2(install(Function), tmp));
+if (Exitcode != R_MR_CALL_ERROR &&
+    Exitcode != R_MR_SIZE_VECT2D_ALLOC_ERROR) {
+    PROTECT(arg = lang2(install(""data.frame""), arg));
     int exitcode = 0;
-    E = R_tryEval(tmp, R_GlobalEnv, &exitcode);
+
+    int index = 0;
+    while (! MR_list_is_empty(Functions)) {
+        char* function = (char*) MR_list_head(Functions);
+        Functions = MR_list_tail(Functions);
+        PROTECT(arg = lang2(install(function), arg));
+        ++index;
+    }
+
+    E = R_tryEval(arg, R_GlobalEnv, &exitcode);
+
     Exitcode = exitcode;
-    UNPROTECT(3);          /* tmp */
-    UNPROTECT(NumCols);    /* column vectors */
+    UNPROTECT(NumCols + index + 1);    /* column vectors + lang2 */
     UNPROTECT(1);          /* arg */
-//}
+}
 RESTORE_VERBOSITY;
 ").
+
+:- pragma foreign_code("C",
+"
+inline void
+R_MR_APPLY_UNIV_HELPER_INTEGER(MR_ArrayPtr array, int col, MR_Integer nrows,
+    MR_Integer ncols, SEXP vect)
+{
+    int *I = INTEGER(vect);
+    MR_Word value;
+    MR_TypeInfo ti;
+    for (int row = 0; row < nrows; ++row) {
+        MR_unravel_univ(array->elements[ncols * row + col], ti, value);
+        I[row] = (int) value;
+    }
+}
+").
+
+:- pragma foreign_code("C",
+"
+inline void
+R_MR_APPLY_UNIV_HELPER_LOGICAL(MR_ArrayPtr array, int col, MR_Integer nrows,
+    MR_Integer ncols, SEXP vect)
+{
+    Rboolean *L = (Rboolean*) LOGICAL(vect);
+    MR_Word value;
+    MR_TypeInfo ti;
+    for (int row = 0; row < nrows; ++row) {
+        MR_unravel_univ(array->elements[ncols * row + col], ti, value);
+        L[row] = (Rboolean) value;
+    }
+}
+").
+
+:- pragma foreign_code("C",
+"
+inline void
+R_MR_APPLY_UNIV_HELPER_REAL(MR_ArrayPtr array, int col, MR_Integer nrows,
+    MR_Integer ncols, SEXP vect)
+{
+    MR_Float *R = REAL(vect);
+    MR_Word value;
+    MR_TypeInfo ti;
+    for (int row = 0; row < nrows; ++row) {
+        MR_unravel_univ(array->elements[ncols * row + col], ti, value);
+        R[row]  = (double) MR_word_to_float(value);
+    }
+}
+").
+
+:- pragma foreign_code("C",
+"
+inline void
+R_MR_APPLY_UNIV_HELPER_STRING(MR_ArrayPtr array, int col, MR_Integer nrows,
+    MR_Integer ncols, SEXP vect)
+{
+    MR_Word value;
+    MR_TypeInfo ti;
+    for (int row = 0; row < nrows; ++row) {
+        MR_unravel_univ(array->elements[ncols * row + col], ti, value);
+        SET_STRING_ELT(vect, row,
+            Rf_mkChar((const char*) value));
+    }
+}
+").
+
+compose_to_univ2d(Functions, A, Silent, Result, !.IO, !:IO) = Errorcode :-
+    compose_to_univ2d(Functions, A, Silent, Result, Errorcode, !.IO, !:IO).
+
+apply_to_univ2d(Function, A, Silent, SexpOut, Errorcode, !.IO, !:IO) :-
+    compose_to_univ2d([Function], A, Silent, SexpOut, Errorcode, !.IO, !:IO).
+
+apply_to_univ2d(Function, Array, Silent, SexpOut, !.IO, !:IO) = Errorcode :-
+    compose_to_univ2d([Function], Array, Silent, SexpOut,
+        Errorcode, !.IO, !:IO).
 
 %  Apply R Function to list of vectors with types either logical,
 %  integral, numeric or character (string) into an S expression Result.

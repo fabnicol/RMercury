@@ -250,15 +250,22 @@ main(!IO) :-
                                     array2d([["cat", "miaow"],
                                              ["dog", "waow"]])),
                       yes, S59, _, !IO),
-    apply_to_sexp("print", S59, no, _, _, !IO). % [1] "cat" "miaow" "dog" "waow"
+    apply_to_sexp("print", S59, no, _, _, !IO), % [1] "cat" "miaow" "dog" "waow"
     % Note: Mercury array2d is row-major while R is column-major in data.frames.
     % This may be confusing. TODO: consider some sort of transpose.
     % The predicate below needs some doing: one would need to export univ_value
     % to C for it to work.
-    % apply_to_univ2d("print",
-    %                array2d([[univ(1), univ("a"), univ(3.0)],
-    %                         [univ(2), univ("bc"), univ(4.2)]]),
-    %                no, _, _, !IO).
+     apply_to_univ2d("print",
+                    array2d([[univ(1), univ(yes),  univ(1.01), univ("a")],
+                             [univ(2), univ(no), univ(2.01), univ("az")]]),
+                         no, _, _, !IO),
+     % note: R will cas array elements to strings. This is normal R behavior
+     compose_to_univ2d(["print", "t"],
+         array2d([[univ(1), univ(yes),  univ(1.01), univ("a")],
+             [univ(2), univ(no), univ(2.01), univ("az")]]),
+         no, _, _, !IO).
+
+
 
 
 :- initialise start_R/2.
