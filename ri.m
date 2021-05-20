@@ -4110,7 +4110,6 @@ R_MR_APPLY_UNIV_HELPER_INTEGER(MR_ArrayPtr array, int col, MR_Integer nrows,
     for (int row = 0; row < nrows; ++row) {
         MR_unravel_univ(array->elements[ncols * row + col], ti, value);
         I[row] = (int) value;
-        printf(""%d\\n "", value);
     }
 }
 ").
