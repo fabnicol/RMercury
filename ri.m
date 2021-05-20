@@ -182,6 +182,23 @@
 
 :- func transpose_array(array2d(T)) = array2d(T).
 
+    % Marshalling to Mercury data types
+    %
+    % marshall_vect_to_list(Start, End, Buffer, List)
+    %
+    % Copy elements of generic buffer into a list, starting from zero-based
+    % index Start and ending at zero-based index End included.
+
+:- pred marshall_vect_to_list(int::in, int::in, buffer::in,
+    list(buffer_item)::out) is det.
+
+:- typeclass to_list(U, V) where [
+    pred to_list(int::in, int::in, U::in, list(V)::out) is det,
+    func to_list(U) = list(V)
+].
+
+:- instance to_list(buffer, buffer_item).
+
 %-----------------------------------------------------------------------------%
 
 % Later to be expanded with other types than 'buffer'.
@@ -1191,30 +1208,54 @@
 
 :- pred compose_to_univ2d(list(string), array2d(univ), bool, sexp, int, io, io).
 :- mode compose_to_univ2d(in, array2d_di, in, out, out, di, uo) is det.
-:- func compose_to_univ2d(list(string), array2d(univ), bool, sexp, io, io) = int.
+:- func compose_to_univ2d(list(string), array2d(univ), bool,
+    sexp, io, io) = int.
 :- mode compose_to_univ2d(in, array2d_di, in, out, di, uo) = out is cc_multi.
 
-    %  apply_to_univ_list_arrays(Function, Args, Silent, Status, Result, !IO)
-    %      = Exitcode
+g    %  apply_to_univ_list_arrays(Function, Args, Silent, SexpOut, Result, !IO) =
+    %      Exitcode
+    %  apply_to_univ_list_arrays(Function, Args, Silent, SexpOut,
+    %      Result, Exitcode, !IO)
+    %  compose_to_univ_list_arrays(Function, Args, Silent,
+    %      SexpOut, Result, !IO) = Exitcode
+    %  compose_to_univ_list_arrays(Function, Args, Silent, SexpOut, Result,
+    %      Exitcode, !IO)
     %
-    %  This function is like the above function but with a list of
-    %  1-dimensional arrays of possibly different dimensions for Args.
+    %  These procedures are like the above but with a list of 1-dimensional
+    %  arrays of possibly different lengths. The list of arrays is in column-
+    %  major order, as opposed to standard Mercury order for array2d and
+    %  similarly to R data frame column ordering.
+    %  As in R, incomplete columns will be recycled. This can only happen if
+    %  the incomplete column has a number of rows that divides the data frame
+    %  row count.
     %
+    %  Example:
+    %  apply_to_univ_list_arrays(["print", "str"],
+    %      [array([univ(1), univ(2)]),
+    %       array([univ("ab"), univ("cd"), univ("de"), univ("fg")])],
+    %      yes, Sexp, E, !IO).
+    %
+    %  The printed array will have 2 columns of 4 rows, with column 1 recycled
+    %  (1 2 1 2).
 
+:- pred apply_to_univ_list_arrays(string, list(array(univ)), bool,
+    sexp, int, io, io).
+:- mode apply_to_univ_list_arrays(in, array_di, in,
+    out, out, di, uo) is det.
 :- func apply_to_univ_list_arrays(string, list(array(univ)), bool,
-     sexp, io, io) = int.
-
+    sexp, io, io) = int.
 :- mode apply_to_univ_list_arrays(in, array_di, in,
      out, di, uo) = out is det.
 
-%-----------------------------------------------------------------------------%
-% Marshalling to Mercury data types
-%
-% To list
-%
+:- pred compose_to_univ_list_arrays(list(string), list(array(univ)), bool,
+    sexp, int, io, io).
+:- mode compose_to_univ_list_arrays(in, array_di, in,
+    out, out, di, uo) is det.
+:- func compose_to_univ_list_arrays(list(string), list(array(univ)), bool,
+    sexp, io, io) = int.
+:- mode compose_to_univ_list_arrays(in, array_di, in,
+    out, di, uo) = out is det.
 
-:- pred marshall_vect_to_list(int::in, int::in, buffer::in,
-    list(buffer_item)::out) is det.
 
 %-----------------------------------------------------------------------------%
 %-----------------------------------------------------------------------------%
@@ -3782,6 +3823,7 @@ R_MR_APPLY_HELPER(MR_Word functions, MR_ArrayPtr array, MR_Integer numlines,
         if (arg == NULL) {
             return R_MR_SIZE_VECT2D_ALLOC_ERROR;
         }
+
         for (int i = 0; i < numcols; ++i) {
             SEXP tmp_i = PROTECT(allocVector(sexptype, numlines));
             f(array, i, numlines, numcols, tmp_i);
@@ -4068,6 +4110,7 @@ R_MR_APPLY_UNIV_HELPER_INTEGER(MR_ArrayPtr array, int col, MR_Integer nrows,
     for (int row = 0; row < nrows; ++row) {
         MR_unravel_univ(array->elements[ncols * row + col], ti, value);
         I[row] = (int) value;
+        printf(""%d\\n "", value);
     }
 }
 ").
@@ -4097,6 +4140,7 @@ R_MR_APPLY_UNIV_HELPER_REAL(MR_ArrayPtr array, int col, MR_Integer nrows,
     MR_Float *R = REAL(vect);
     MR_Word value;
     MR_TypeInfo ti;
+
     for (int row = 0; row < nrows; ++row) {
         MR_unravel_univ(array->elements[ncols * row + col], ti, value);
         R[row]  = (double) MR_word_to_float(value);
@@ -4114,8 +4158,7 @@ R_MR_APPLY_UNIV_HELPER_STRING(MR_ArrayPtr array, int col, MR_Integer nrows,
     MR_TypeInfo ti;
     for (int row = 0; row < nrows; ++row) {
         MR_unravel_univ(array->elements[ncols * row + col], ti, value);
-        SET_STRING_ELT(vect, row,
-            Rf_mkChar((const char*) value));
+        SET_STRING_ELT(vect, row, Rf_mkChar((const char*) value));
     }
 }
 ").
@@ -4133,10 +4176,15 @@ apply_to_univ2d(Function, Array, Silent, SexpOut, !.IO, !:IO) = Errorcode :-
 %  Apply R Function to list of vectors with types either logical,
 %  integral, numeric or character (string) into an S expression Result.
 
-apply_to_univ_list_arrays(Code, L, Silent, Result, !IO) = Exitcode :-
+compose_to_univ_list_arrays(Functions, L, Silent, Result,
+    Exitcode, !.IO, !:IO) :- compose_to_univ_list_arrays(Functions, L, Silent,
+    Result, !.IO, !:IO) = Exitcode.
+
+compose_to_univ_list_arrays(Functions, L, Silent,
+    Result, !.IO, !:IO) = Exitcode :-
     univ_to_type_name_list(L, NumRows, NumCols, Types),
-    apply_to_univ_list_arrays_helper(Code, NumRows, NumCols, Types, L, Silent,
-        Result, Exitcode, !.IO, !:IO).
+    compose_to_univ_list_arrays_helper(reverse(Functions), NumRows, NumCols,
+    Types, L, Silent, Result, Exitcode, !.IO, !:IO).
 
     % univ_to_type_name_list(List, Sizes, NumCols, Typenames)
     %
@@ -4144,8 +4192,8 @@ apply_to_univ_list_arrays(Code, L, Silent, Result, !IO) = Exitcode :-
     % the size of each univ array, the length of the list,
     % and an array of the corresponding typenames.
 
-:- pred univ_to_type_name_list(list(array(univ))::in,
-    list(int)::out, int::out, list(string)::out) is det.
+:- pred univ_to_type_name_list(list(array(univ))::in, list(int)::out, int::out,
+    list(string)::out) is det.
 
 univ_to_type_name_list(L, NumRows, NumCols, Typenames) :-
     NumCols = list.length(L),
@@ -4157,106 +4205,116 @@ univ_to_type_name_list(L, NumRows, NumCols, Typenames) :-
 to_type_name_list(A) = Typename :-
     Typename = type_name(univ_type(A ^ elem(0))).
 
-:- pred apply_to_univ_list_arrays_helper(string, list(int),
-    int, list(string), list(array(univ)),
-    bool, sexp, int, io, io).
+:- pred compose_to_univ_list_arrays_helper(list(string), list(int),
+    int, list(string), list(array(univ)), bool, sexp, int, io, io).
 
-:- mode apply_to_univ_list_arrays_helper(in, in,
+:- mode compose_to_univ_list_arrays_helper(in, in,
     in, in, array_di,
     in, out, out, di, uo) is det.
 
-:- pragma foreign_decl("C",
-"void
-R_MR_APPLY_HELPER_2D(MR_Word L, MR_Integer nrows, MR_Integer sum_nrows,
-    void (*f)(MR_ArrayPtr, int, MR_Integer, MR_Integer, SEXP),
-    int sexptype, MR_Integer *Exitcode, SEXP col);
-").
-
 :- pragma foreign_proc("C",
-    apply_to_univ_list_arrays_helper(Function::in, NumRows::in,
-        NumCols::in, Types::in, L::array_di,
-        Silent::in, E::out, Exitcode::out, IO0::di, IO::uo),
+    compose_to_univ_list_arrays_helper(Functions::in, NumRows::in, NumCols::in,
+        Types::in, Arrays::array_di, Silent::in,
+        E::out, Exitcode::out, IO0::di, IO::uo),
     [promise_pure, will_not_call_mercury, tabled_for_io,
      does_not_affect_liveness],
 "
-errno = 0;
-int exitcode = 0;
-Exitcode = 0;
 SET_SILENT(Silent);
-SEXP arg = allocVector(VECSXP, NumCols);
-R_PreserveObject(arg);
-SEXP col[NumCols];
-SEXP tmp;
+SEXP arg;
+Exitcode = 0;
 MR_Integer sum_nrows = 0;
 
+arg = PROTECT(allocVector(VECSXP, NumCols));
 if (arg == NULL) {
     Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
-    E = NULL;
 } else {
 
-    for (int i = 0; i < NumCols && ! MR_list_is_empty(L); ++i) {
+    for (int i = 0; i < NumCols; ++i) {
 
+        MR_ArrayPtr Array_ptr = (MR_ArrayPtr) MR_list_head(Arrays);
+        Arrays = MR_list_tail(Arrays);
         MR_String type_i = (MR_String) MR_list_head(Types);
         Types = MR_list_tail(Types);
         MR_Integer nrows_i = (MR_Integer) MR_list_head(NumRows);
         sum_nrows += nrows_i;
         NumRows = MR_list_tail(NumRows);
+        SEXP Sexp_i;
 
-        if (strcmp(type_i, ""string"")) {
-            R_MR_APPLY_HELPER_2D(L, nrows_i, sum_nrows,
-                R_MR_APPLY_HELPER_STRING, STRSXP, &Exitcode, col[i]);
-        } else if (strcmp(type_i, ""int"")) {
-            R_MR_APPLY_HELPER_2D(L, nrows_i, sum_nrows,
-                R_MR_APPLY_HELPER_INTEGER, INTSXP, &Exitcode, col[i]);
-        } else if (strcmp(type_i, ""float"")) {
-            R_MR_APPLY_HELPER_2D(L, nrows_i, sum_nrows,
-                R_MR_APPLY_HELPER_REAL, REALSXP, &Exitcode, col[i]);
-        } else if (strcmp(type_i, ""bool"")) {
-            R_MR_APPLY_HELPER_2D(L, nrows_i, sum_nrows,
-                R_MR_APPLY_HELPER_LOGICAL, LGLSXP, &Exitcode, col[i]);
+        if (strcmp(type_i, ""string"") == 0) {
+
+            Sexp_i = PROTECT(allocVector(STRSXP, nrows_i));
+            if (Sexp_i == NULL)
+                Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
+            else
+                R_MR_APPLY_UNIV_HELPER_STRING(Array_ptr, 0,
+                    nrows_i, 1, Sexp_i);
+        } else if (strcmp(type_i, ""int"") == 0) {
+
+            Sexp_i = PROTECT(allocVector(INTSXP, nrows_i));
+            if (Sexp_i == NULL)
+                Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
+            else
+                 R_MR_APPLY_UNIV_HELPER_INTEGER(Array_ptr, 0,
+                    nrows_i, 1, Sexp_i);
+
+        } else if (strcmp(type_i, ""float"") == 0) {
+
+            Sexp_i = PROTECT(allocVector(REALSXP, nrows_i));
+            if (Sexp_i == NULL)
+                Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
+            else
+                R_MR_APPLY_UNIV_HELPER_REAL(Array_ptr, 0,
+                    nrows_i, 1, Sexp_i);
+
+        } else if (strcmp(type_i, ""bool.bool"") == 0 ||
+                   strcmp(type_i, ""bool"") == 0) {
+            /* Normally, bool.bool. Allowing for possible future changes */
+
+            Sexp_i = PROTECT(allocVector(LGLSXP, nrows_i));
+            if (Sexp_i == NULL)
+                Exitcode = R_MR_SIZE_VECT2D_ALLOC_ERROR;
+            else
+                R_MR_APPLY_UNIV_HELPER_LOGICAL(Array_ptr, 0,
+                    nrows_i, 1, Sexp_i);
         } else {
-            Exitcode = R_MR_CALL_ERROR;
+                Exitcode = R_MR_CALL_ERROR;
         }
 
-        if (Exitcode != R_MR_CALL_ERROR && Exitcode != R_MR_NULL_ARGS)
-            SET_VECTOR_ELT(arg, i, col[i]);
+        SET_VECTOR_ELT(arg, i, Sexp_i);
     }
+}
 
-    if (Exitcode != R_MR_CALL_ERROR && Exitcode != R_MR_NULL_ARGS) {
-        tmp = lang2(install(Function), arg);
-        R_PreserveObject(tmp);
-        E = R_tryEval(tmp, R_GlobalEnv, &exitcode);
-        Exitcode = (MR_Integer) exitcode; /* int -> long int */
-        R_ReleaseObject(tmp);
-        for (int i = 0; i < NumCols; ++i) R_ReleaseObject(col[i]);
-        R_ReleaseObject(arg);
-    } else {
-        for (int i = 0; i < NumCols; ++i) R_ReleaseObject(col[i]);
-        R_ReleaseObject(arg);
+if (Exitcode != R_MR_CALL_ERROR &&
+    Exitcode != R_MR_SIZE_VECT2D_ALLOC_ERROR) {
+        PROTECT(arg = lang2(install(""data.frame""), arg));
+        int exitcode = 0;
 
-        /* There is a remote chance of errno catching some error
-           uncaught by Exitcode. Allowing this. */
-        if (exitcode == 0 && errno) Exitcode = errno;
-    }
+        int index = 0;
+        while (! MR_list_is_empty(Functions)) {
+            char* function = (char*) MR_list_head(Functions);
+            Functions = MR_list_tail(Functions);
+            PROTECT(arg = lang2(install(function), arg));
+            ++index;
+        }
+
+        E = R_tryEval(arg, R_GlobalEnv, &exitcode);
+
+    Exitcode = exitcode;
+    UNPROTECT(NumCols + index + 1);    /* column vectors + lang2 */
+    UNPROTECT(1);          /* arg */
 }
 RESTORE_VERBOSITY;
-errno = 0;
 ").
 
-:- pragma foreign_code("C",
-"
-inline void
-R_MR_APPLY_HELPER_2D(MR_Word L, MR_Integer nrows, MR_Integer sum_nrows,
-    void (*f)(MR_ArrayPtr, int, MR_Integer, MR_Integer, SEXP),
-    int sexptype, MR_Integer *Exitcode, SEXP col)
-{
-    col = allocVector(sexptype, (int) nrows);
-    R_PreserveObject(col);
-    MR_ArrayPtr array = (MR_ArrayPtr) MR_list_head(L);
-    f(array, 0, nrows, sum_nrows, col);
-    L = MR_list_tail(L);
-}
-").
+
+
+apply_to_univ_list_arrays(Function, L, Silent, Result,
+    !.IO, !:IO) = Exitcode :- apply_to_univ_list_arrays(Function, L,
+    Silent, Result, Exitcode, !.IO, !:IO).
+
+apply_to_univ_list_arrays(Function, L, Silent, Result, Exitcode, !.IO, !:IO) :-
+    compose_to_univ_list_arrays([Function], L, Silent, Result,
+        Exitcode, !.IO, !:IO).
 
 %-----------------------------------------------------------------------------%
 %
@@ -4299,9 +4357,7 @@ check_finite(Code, Predicate, Behavior, Result, !.IO, !:IO) :-
 
 marshall_vect_to_list(Start, End, Buffer, L) :-
     S = length(Buffer),
-    ( if
-        End < S, End >= 0, Start >= 0, Start =< End
-    then
+    ( if End < S, End >= 0, Start >= 0, Start =< End then
         marshall_helper(Start, End, Buffer, length(Buffer), [], L)
     else
         L = []
@@ -4313,9 +4369,7 @@ marshall_vect_to_list(Start, End, Buffer, L) :-
 marshall_helper(Start, Index, Buffer, Size, L0, L1) :-
     lookup(Buffer, Index, Value),
     L = [ Value | L0],
-    ( if
-        Index = Start
-    then
+    ( if Index = Start then
         L1 = L
     else
         marshall_helper(Start, Index - 1, Buffer, Size, L, L1)
@@ -4326,12 +4380,7 @@ marshall_helper(Start, Index, Buffer, Size, L0, L1) :-
 marshall_vect_to_list(Buffer) = List :-
     marshall_vect_to_list(0, length(Buffer) - 1, Buffer, List).
 
-:- typeclass to_list(U, V) where [
-    pred to_list(int::in, int::in, U::in, list(V)::out) is det,
-    func to_list(U) = list(V)
-].
-
-    % Currently to_list is  only instantiated for 'buffer' types
+    % Currently to_list is only instantiated for 'buffer' types
     % This should change when moving on to dates, events etc.
 
 :- instance to_list(buffer, buffer_item) where [
@@ -4346,9 +4395,7 @@ marshall_vect_to_list(Buffer) = List :-
     % Is this really useful? Hum.
 
 write_rbool(Value, !IO) :-
-    ( if
-        Value = yes
-    then
+    ( if Value = yes then
         write_string("TRUE", !IO)
     else
         write_string("FALSE", !IO)

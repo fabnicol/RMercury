@@ -263,8 +263,19 @@ main(!IO) :-
      compose_to_univ2d(["print", "t"],
          array2d([[univ(1), univ(yes),  univ(1.01), univ("a")],
              [univ(2), univ(no), univ(2.01), univ("az")]]),
-         no, _, _, !IO).
-
+         no, _, _, !IO),
+     apply_to_univ_list_arrays("print",
+         [array([univ(1), univ(2), univ(3)]),
+         array([univ("ab"), univ("cd"), univ("k")]),
+         array([univ(yes), univ(no), univ(yes), univ(no)]),
+         array([univ(2.1), univ(3.2),  univ(2.01), univ(4.2)])],
+         yes, _, _, !IO),
+     compose_to_univ_list_arrays(["print", "str"],
+         [array([univ(1), univ(2)]),
+          array([univ("ab"), univ("cd"), univ("de"), univ("fg")]),
+          array([univ(yes), univ(no), univ(yes), univ(no)]),
+          array([univ(2.1), univ(3.2),  univ(2.01), univ(4.2)])],
+         yes, _, _, !IO).
 
 
 
