@@ -1212,7 +1212,7 @@
     sexp, io, io) = int.
 :- mode compose_to_univ2d(in, array2d_di, in, out, di, uo) = out is cc_multi.
 
-g    %  apply_to_univ_list_arrays(Function, Args, Silent, SexpOut, Result, !IO) =
+    %  apply_to_univ_list_arrays(Function, Args, Silent, SexpOut, Result, !IO) =
     %      Exitcode
     %  apply_to_univ_list_arrays(Function, Args, Silent, SexpOut,
     %      Result, Exitcode, !IO)

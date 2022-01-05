@@ -2,7 +2,7 @@ INSTALL_PREFIX=local
 
 MAIN_TARGET = libri
 
-R_LDFLAGS = "-L/usr/lib64/R/lib -lR -lRblas"
+R_LDFLAGS = "-L/usr/lib64/R/lib -L/usr/local/lib64/R/lib/ -lR -lRblas"
 
 R_CFLAGS = "-I/usr/lib64/R/library/RInside/include/  -I/usr/share/R/include/ -I /usr/lib64/R/include -I. -O3 -march=native -std=gnu99"
          
