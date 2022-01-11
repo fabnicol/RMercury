@@ -264,20 +264,29 @@ main(!IO) :-
          array2d([[univ(1), univ(yes),  univ(1.01), univ("a")],
              [univ(2), univ(no), univ(2.01), univ("az")]]),
          no, _, _, !IO),
+     Data = [array([univ("tw"), univ("ez"), univ("xa"), univ("zz")]),
+             array([univ(yes), univ(no), univ(yes), univ(yes)]),
+             array([univ(-2.1), univ(-3.2),  univ(-2.01), univ(-4.2)])],
+     Data2 = Data, % Remember the clobbering issue ;)
+     Data3 = Data, % idem ;)
      apply_to_univ_list_arrays("print",
-         [array([univ(1), univ(2), univ(3)]),
-         array([univ("ab"), univ("cd"), univ("k")]),
-         array([univ(yes), univ(no), univ(yes), univ(no)]),
-         array([univ(2.1), univ(3.2),  univ(2.01), univ(4.2)])],
-         yes, _, _, !IO),
-     compose_to_univ_list_arrays(["print", "str"],
-         [array([univ(1), univ(2)]),
-          array([univ("ab"), univ("cd"), univ("de"), univ("fg")]),
-          array([univ(yes), univ(no), univ(yes), univ(no)]),
-          array([univ(2.1), univ(3.2),  univ(2.01), univ(4.2)])],
-         yes, _, _, !IO).
-
-
+                               Data,
+                               yes, _, _, !IO),
+     compose_to_univ_list_arrays(["sqrt", "nrow"],
+         Data2,
+         yes, S60, S61, !IO),
+     compose_to_univ_list_arrays(["sqrt", "nrow", "t"],
+                                 Data3,
+                                 yes, S62, S63, !IO),
+     write_string("Square root of number of rows=", !IO),
+     write_int(to_int_det(S60), !IO), nl(!IO),
+     write_string("Error code=", !IO),
+     write_int(S61, !IO), nl(!IO),
+     write_string("Square root of number of rows of transposed table=", !IO),
+     write_float(to_float_det(S62), !IO), nl(!IO),
+     write_string("Error code=", !IO),
+     write_int(S63, !IO), nl(!IO),
+     nl(!IO).
 
 :- initialise start_R/2.
 
@@ -285,94 +294,112 @@ main(!IO) :-
 
 % Output:
 %
-% 8
-% FALSE
-% 0.2
-% abcs
-% abcd
-% 1234
-% 1234.2
-% TRUE
-% 2
-% 2
-% bcf
-% 0
-% "Now bool:"
-% TRUE
-% this string: b
-% this int: 10000
-% This is an example
-% 33
-% 34.0
-% TRUE
-% FALSE
-% 56.0
-% 842
-% Now again a string!
-% 1
-% Now again a string! is a string buffer
-% Now again a string!
-% FALSE
-% 2.0
-% 1.0
-% 0.0
-% 2.0
-% 1.0
-% 0.0
-% abc
-% def
-%
-% abc
-% def
-%
-% 10
-% 20
-% 0
-% 10
-% 20
-% 0
-% TRUE
-% FALSE
-% FALSE
-% TRUE
-% FALSE
-% FALSE
-% 0
-% 10
-% abc def
-% [1]  TRUE FALSE
-% [1] 1.15 3.20
-% [1] 1 2
-% abc
-% [1] TRUE
-% [1] 1.15
-% [1] 1
-% [1] 1275
-% cat[[1]]
-% [1] FALSE  TRUE
-%
-% [[2]]
-% [1] TRUE TRUE
-%
-% [[1]]
-% [1] 1 2
-%
-% [[2]]
-% [1] 3 4
-%
-% [1] 2.360854
-%
-% [1] 40134.84
-%
-% 40134.83743087578
-% c.1.15..2.15. c.3.15..4.15.
-% 1          1.15          3.15
-% 2          2.15          4.15
-% [1] 10.6
-% [1] 9993949
-% [1] 9993949
-% [1] "cat"   "dog"   "miaow" "waow"
-% [1] "cat"   "miaow" "dog"   "waow"
+%% 8
+%% FALSE
+%% 0.2
+%% abcs
+%% abcd
+%% 1234
+%% 1234.2
+%% TRUE
+%% 2
+%% 2
+%% bcf
+%% 0
+%% "Now bool:"
+%% TRUE
+%% this string: b
+%% this int: 10000
+%% This is an example
+%% 33
+%% 34.0
+%% TRUE
+%% FALSE
+%% 56.0
+%% 842
+%% Now again a string!
+%% 1
+%% Now again a string! is a string buffer
+%% Now again a string!
+%% FALSE
+%% 2.0
+%% 1.0
+%% 0.0
+%% 2.0
+%% 1.0
+%% 0.0
+%% abc
+%% def
+
+%% abc
+%% def
+
+%% 10
+%% 20
+%% 0
+%% 10
+%% 20
+%% 0
+%% TRUE
+%% FALSE
+%% FALSE
+%% TRUE
+%% FALSE
+%% FALSE
+%% 0
+%% 10
+%% abc def
+%% [1]  TRUE FALSE
+%% [1] 1.15 3.20
+%% [1] 1 2
+%% abc
+%% [1] TRUE
+%% [1] 1.15
+%% [1] 1
+%% [1] 1275
+%% cat[[1]]
+%% [1] FALSE  TRUE
+
+%% [[2]]
+%% [1] TRUE TRUE
+
+%% [[1]]
+%% [1] 1 2
+
+%% [[2]]
+%% [1] 3 4
+
+%% [1] 2.360854
+
+%% [1] 40134.84
+
+%% 40134.83743087578
+%%   c.1.15..2.15. c.3.15..4.15.
+%% 1          1.15          3.15
+%% 2          2.15          4.15
+%% [1] 10.6
+%% [1] 9993949
+%% [1] 9993949
+%% [1] "cat"   "dog"   "miaow" "waow"
+%% [1] "cat"   "miaow" "dog"   "waow"
+%% Column types:  array(["int", "bool.bool", "float", "string"])
+%%   X1.2 c.TRUE..FALSE. c.1.01..2.01. c..a....az..
+%% 1    1           TRUE          1.01            a
+%% 2    2          FALSE          2.01           az
+%% Column types:  array(["int", "bool.bool", "float", "string"])
+%%                [,1]   [,2]
+%% X1.2           "1"    "2"
+%% c.TRUE..FALSE. "TRUE" "FALSE"
+%% c.1.01..2.01.  "1.01" "2.01"
+%% c..a....az..   "a"    "az"
+%% Erreur dans (function (..., row.names = NULL, check.rows = FALSE, check.names = TRUE,  :
+%%   les arguments impliquent des nombres de lignes différents : 3, 4
+%% 'data.frame':   4 obs. of  4 variables:
+%%  $ X1.2                       : int  1 2 1 2
+%%  $ c..ab....cd....de....fg..  : chr  "ab" "cd" "de" "fg"
+%%  $ c.TRUE..FALSE..TRUE..FALSE.: logi  TRUE FALSE TRUE FALSE
+%%  $ c.2.1..3.2..2.01..4.2.     : num  2.1 3.2 2.01 4.2
+%% NULL
 %
 % real	0m0,559s
 % user	0m0,497s

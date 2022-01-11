@@ -1216,9 +1216,9 @@
     %      Exitcode
     %  apply_to_univ_list_arrays(Function, Args, Silent, SexpOut,
     %      Result, Exitcode, !IO)
-    %  compose_to_univ_list_arrays(Function, Args, Silent,
+    %  compose_to_univ_list_arrays(Functions, Args, Silent,
     %      SexpOut, Result, !IO) = Exitcode
-    %  compose_to_univ_list_arrays(Function, Args, Silent, SexpOut, Result,
+    %  compose_to_univ_list_arrays(Functions, Args, Silent, SexpOut, Result,
     %      Exitcode, !IO)
     %
     %  These procedures are like the above but with a list of 1-dimensional
@@ -4305,15 +4305,13 @@ if (Exitcode != R_MR_CALL_ERROR &&
 RESTORE_VERBOSITY;
 ").
 
-
-
 apply_to_univ_list_arrays(Function, L, Silent, Result,
     !.IO, !:IO) = Exitcode :- apply_to_univ_list_arrays(Function, L,
     Silent, Result, Exitcode, !.IO, !:IO).
 
 apply_to_univ_list_arrays(Function, L, Silent, Result, Exitcode, !.IO, !:IO) :-
     compose_to_univ_list_arrays([Function], L, Silent, Result,
-        Exitcode, !.IO, !:IO).
+    Exitcode, !.IO, !:IO).
 
 %-----------------------------------------------------------------------------%
 %
