@@ -392,18 +392,21 @@ main(!IO) :-
 %% c.TRUE..FALSE. "TRUE" "FALSE"
 %% c.1.01..2.01.  "1.01" "2.01"
 %% c..a....az..   "a"    "az"
-%% Erreur dans (function (..., row.names = NULL, check.rows = FALSE, check.names = TRUE,  :
-%%   les arguments impliquent des nombres de lignes différents : 3, 4
-%% 'data.frame':   4 obs. of  4 variables:
-%%  $ X1.2                       : int  1 2 1 2
-%%  $ c..ab....cd....de....fg..  : chr  "ab" "cd" "de" "fg"
-%%  $ c.TRUE..FALSE..TRUE..FALSE.: logi  TRUE FALSE TRUE FALSE
-%%  $ c.2.1..3.2..2.01..4.2.     : num  2.1 3.2 2.01 4.2
-%% NULL
-%
-% real	0m0,559s
-% user	0m0,497s
-% sys	0m0,057s
-%
-% Compilation finished at Mon May 17 05:52:19
-%
+%% %% c..tw....ez....xa....zz.. c.TRUE..FALSE..TRUE..TRUE.
+%% 1                        tw                       TRUE
+%% 2                        ez                      FALSE
+%% 3                        xa                       TRUE
+%% 4                        zz                       TRUE
+%% c..2.1...3.2...2.01...4.2.
+%% 1                      -2.10
+%% 2                      -3.20
+%% 3                      -2.01
+%% 4                      -4.20
+%% Square root of number of rows=2
+%% Error code=0
+%% Square root of number of rows of transposed table=1.7320508075688772
+%% Error code=0
+
+%% real    0m0,478s : not that bad.
+%% user    0m0,444s
+%% sys     0m0,048s
