@@ -52,7 +52,8 @@
 :- import_module ri.
 :- import_module bool.
 :- import_module univ.
-:- import_module array, array2d.
+:- import_module array, array2d, array2d2.
+:- import_module pretty_printer.
 
 main(!IO) :-
     eval_int("a<-8", E, !IO),
@@ -286,8 +287,34 @@ main(!IO) :-
      write_float(to_float_det(S62), !IO), nl(!IO),
      write_string("Error code=", !IO),
      write_int(S63, !IO), nl(!IO),
+     Array=array2d2([[1,2,3],[4,5,6]]),
+     nl(!IO),
+     write_doc(list_to_doc(array2d2.lists(Array)), !IO),
+     nl(!IO),
+     write_doc(list_to_doc(array2d2.lists(array2d2.init(5,4, 2))), !IO),
+     nl(!IO),
+     write_doc(list_to_doc(array2d2.lists(array2d2.from_lists([[1,2,3], [4,5,6]]))), !IO),
+     nl(!IO),
+     write_doc(list_to_doc(array2d2.lists(array2d2.from_array(2,3, array([1,2,3,4,5,6])))), !IO),
+     nl(!IO),
+     Arr=array2d([[1,2,3], [4,5,6]]),
+     ArrT=transpose_array2d(Arr),
+     ArrT=array2d(_, _, ArrTFl),
+     write_doc(array_to_doc(ArrTFl), !IO),
+     nl(!IO),
+     write_doc(list_to_doc(lists(ArrT)), !IO),
+     nl(!IO),
+     write_string("set: ", !IO), 
+     unsafe_set(1, 2, 8, array2d2.from_array2d(array2d([[1,2,3], [4,5,6]])), Arr2),
+     write_doc(list_to_doc(lists(Arr2)), !IO),
+     nl(!IO),
+     write_doc(list_to_doc(lists(to_array2d(array2d2([[1,2,3], [4,5,6]])))), !IO),
      nl(!IO).
 
+     
+
+     
+     
 :- initialise start_R/2.
 
 :- finalise shutdown_R/2.  %  or end_R/2

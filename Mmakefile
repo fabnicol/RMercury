@@ -3,8 +3,8 @@
 MAIN_TARGET = libri
 depend: ri.depend
 
-MLFLAGS = -L/usr/lib64/R/lib
-MGNUCFLAGS = -I/usr/share/R/include/ -I /usr/lib64/R/include -I. -O3 -march=native -std=gnu99
+MLFLAGS = -L/usr/local/lib64/R/lib
+MGNUCFLAGS = -I/usr/local/share/R/include/ -I /usr/local/lib64/R/include -I. -O3 -march=native -std=gnu99
 
 # Link with RInside
 

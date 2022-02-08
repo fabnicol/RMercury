@@ -1294,29 +1294,28 @@
 
 transpose_array(Array) = TransposedArray :-
     Array = array2d(NumRows, NumCols, A),
-    transpose_array(A, NumRows) = TA,
+    transpose_array(A, NumCols) = TA,
     TransposedArray = array2d(NumCols, NumRows, TA).
 
 :- func transpose_array(array(T), int) = array(T).
 
 % Note: The implementation is inefficient.
-% We are using the simple Cate & Twigg formula.
-% One would wish not to deep-copy array elements and just use index mappings,
-% which would be passed to apply_to_univ2d_helper. To be revised.
+% We are using the simple Cate & Twigg 
+% (inverse transpose) formula.
 
-transpose_array(Array, NumRows) = TransposedArray :-
+transpose_array(Array, NumCols) = TransposedArray :-
     Size = size(Array),
     array(map(lookup(Array),
-          map(transpose_index(NumRows, Size), 0 `..` (Size - 1))))
+          map(transpose_index(NumCols, Size), 0 `..` (Size - 1))))
         = TransposedArray.
 
 :- func transpose_index(int, int, int) = int.
 
-transpose_index(NumRows, Size, Index) = Result :-
+transpose_index(N, Size, Index) = Result :-
     ( if Index = Size -1 then
         Result = Size - 1
     else
-        Result = (NumRows * Index) mod (Size -1)
+        Result = (N * Index) mod (Size -1)
     ).
 
 %-----------------------------------------------------------------------------%
