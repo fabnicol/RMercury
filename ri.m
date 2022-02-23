@@ -78,7 +78,7 @@
 
 %-----------------------------------------------------------------------------%
 %
-%  Rationale of type Mercury representations of R types
+%  Rationale of Mercury representations of R types
 %
 %  R --> Mercury
 %      Currently we are using typed buffers and a 'catch-all' univ-like 'buffer'
@@ -94,6 +94,15 @@
 %      We will be using array, array2d and occasionally lists, which raise
 %      performance issue in statistics yet may be useful to pack short-sized
 %      R lists (like columns in a data frame).
+%      Mercury tuples can be used to represent R data frames as follows:
+%        - data frames can be represented as array({T1, T2, ..., TN}),
+%          where T1, T2, ..., TN are the types corresponding to R data frame
+%          columns; or:
+%        - as {array(T1), array(T2), ..., array(TN)}, where each array
+%          represents a data frame column of type Tj corresponding to the type
+%          of the j-th column in the R data frame.
+%      The latter representation is more natural as R data frames are
+%      column-major constructs.
 
     %-------------------------------------------------------------------------%
     % A note on R-to-Mercury type casting
@@ -213,12 +222,9 @@
 
 :- instance eval_length(buffer).   % Tested
 
-    % Typeclass eval(T, U)
+    % Typeclass eval_type(T, U)
     %
     % T is <type> and U is <type>_buffer, type = bool, float, int, string.
-    % Following eval_<type> predicates instantiate this typeclass.
-    % create_buffer memebers will create <type>_buffer from <type> elements
-    % or lists.
     % Also used to constrain T in other predicates.
 
 :- typeclass eval_type(T) where [
@@ -2615,7 +2621,7 @@ string_vect(Code, Buffer, !IO) :-
 
 %-----------------------------------------------------------------------------%
 %
-% Operations ont sexp/SEXP (universal R type and Mercury counterpart).
+% Operations on sexp/SEXP (universal R type and Mercury counterpart).
 % Setters/getters. Type 'casts' to and from built-in types and types sexp,
 % <type>_buffers and 'buffer'
 %
